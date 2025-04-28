@@ -8,20 +8,53 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
-const user_module_1 = require("./api/user/user.module");
-const auth_module_1 = require("./api/auth/auth.module");
+const event_emitter_1 = require("@nestjs/event-emitter");
+const auth_module_1 = require("./auth/auth.module");
+const hospital_module_1 = require("./hospital/hospital.module");
+const user_module_1 = require("./user/user.module");
+const bedspace_module_1 = require("./bedspace/bedspace.module");
+const staff_module_1 = require("./staffing/staff.module");
+const emergency_alerts_module_1 = require("./emergency-alerts/emergency-alerts.module");
+const reports_module_1 = require("./reports/reports.module");
+const map_module_1 = require("./map/map.module");
+const websocket_module_1 = require("./websocket/websocket.module");
+const audit_module_1 = require("./audit/audit.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forRoot('mongodb+srv://aniket:aniket@cluster0.bn6fu.mongodb.net/kinisRoleTest?retryWrites=true&w=majority'),
-            user_module_1.UserModule,
+            config_1.ConfigModule.forRoot({
+                isGlobal: true,
+                envFilePath: ['.env', `.env.${process.env.NODE_ENV || 'development'}`],
+            }),
+            mongoose_1.MongooseModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                inject: [config_1.ConfigService],
+                useFactory: async (configService) => ({
+                    uri: configService.get('MONGO_URL'),
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                }),
+            }),
+            event_emitter_1.EventEmitterModule.forRoot({
+                wildcard: true,
+                maxListeners: 20,
+                verboseMemoryLeak: true,
+            }),
             auth_module_1.AuthModule,
+            hospital_module_1.HospitalModule,
+            bedspace_module_1.BedspaceModule,
+            staff_module_1.StaffingModule,
+            emergency_alerts_module_1.EmergencyAlertsModule,
+            reports_module_1.ReportsModule,
+            map_module_1.MapModule,
+            websocket_module_1.WebsocketModule,
+            audit_module_1.AuditModule,
+            user_module_1.UserModule
         ],
-        controllers: [],
-        providers: [],
     })
 ], AppModule);
 exports.AppModule = AppModule;
