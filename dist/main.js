@@ -5,13 +5,13 @@ const app_module_1 = require("./app.module");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const compression = require("compression");
-const helmet = require("helmet");
+const helmet_1 = require("helmet");
 const config_1 = require("@nestjs/config");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const configService = app.get(config_1.ConfigService);
     app.use(compression());
-    app.use(helmet);
+    app.use((0, helmet_1.default)());
     app.enableCors();
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,

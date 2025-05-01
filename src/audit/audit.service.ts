@@ -33,7 +33,7 @@ export class AuditService {
     const { page = 1, limit = 20, module, action, startDate, endDate, resourceId } = query;
     
     // Build filter
-    const filter: any = { hospital: new MongooseSchema.Types.ObjectId(hospitalId) };
+    const filter: any = { hospital: new Types.ObjectId(hospitalId) };
     
     if (module) {
       filter.module = module;
@@ -119,7 +119,7 @@ export class AuditService {
     const activityByModule = await this.auditLogModel.aggregate([
       {
         $match: {
-          hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+          hospital: new Types.ObjectId(hospitalId),
           createdAt: { $gte: startDate },
         },
       },
@@ -158,7 +158,7 @@ export class AuditService {
     const activityByDay = await this.auditLogModel.aggregate([
       {
         $match: {
-          hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+          hospital: new Types.ObjectId(hospitalId),
           createdAt: { $gte: startDate },
         },
       },
@@ -194,7 +194,7 @@ export class AuditService {
       activityByModule,
       activityByDay,
       totalActivities: await this.auditLogModel.countDocuments({
-        hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+        hospital: new Types.ObjectId(hospitalId),
         createdAt: { $gte: startDate },
       }).exec(),
     };

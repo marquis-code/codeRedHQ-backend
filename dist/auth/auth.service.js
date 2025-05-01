@@ -20,26 +20,13 @@ const mongoose_2 = require("mongoose");
 const bcrypt = require("bcrypt");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const user_service_1 = require("../user/user.service");
+const hospital_service_1 = require("../hospital/hospital.service");
 let AuthService = class AuthService {
-    constructor(hospitalModel, UserService, jwtService) {
+    constructor(hospitalModel, hospitalService, UserService, jwtService) {
         this.hospitalModel = hospitalModel;
+        this.hospitalService = hospitalService;
         this.UserService = UserService;
         this.jwtService = jwtService;
-    }
-    async validateHospital(uuid, password) {
-        const hospital = await this.hospitalModel.findOne({ uuid }).exec();
-        if (!hospital) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        const isPasswordValid = await bcrypt.compare(password, hospital.password);
-        if (!isPasswordValid) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        return {
-            id: hospital._id,
-            uuid: hospital.uuid,
-            hospitalName: hospital.hospitalName,
-        };
     }
     generateJwtToken(payload) {
         return this.jwtService.sign(payload);
@@ -117,12 +104,35 @@ let AuthService = class AuthService {
             });
         });
     }
+    async validateHospital(usernameOrEmail, password) {
+        const hospital = await this.hospitalService.validateHospital(usernameOrEmail, password);
+        if (!hospital) {
+            return null;
+        }
+        const payload = {
+            sub: hospital._id,
+            username: hospital.username,
+            email: hospital.email,
+            type: 'hospital'
+        };
+        return {
+            access_token: this.jwtService.sign(payload),
+            hospital: {
+                id: hospital._id,
+                username: hospital.username,
+                email: hospital.email,
+                hospitalName: hospital.hospitalName,
+            }
+        };
+    }
 };
 AuthService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(hospital_schema_1.Hospital.name)),
-    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => user_service_1.UserService))),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => hospital_service_1.HospitalService))),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => user_service_1.UserService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        hospital_service_1.HospitalService,
         user_service_1.UserService,
         jwt_1.JwtService])
 ], AuthService);

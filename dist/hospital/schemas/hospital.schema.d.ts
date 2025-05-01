@@ -24,8 +24,14 @@
 /// <reference types="mongoose/types/inferschematype" />
 import { Document, Schema as MongooseSchema } from 'mongoose';
 export type HospitalDocument = Hospital & Document;
+export interface HospitalMethods {
+    comparePassword(candidatePassword: string): Promise<boolean>;
+}
+export type HospitalModel = HospitalDocument & HospitalMethods;
 export declare class Hospital {
-    uuid: string;
+    _id: MongooseSchema.Types.ObjectId;
+    username: string;
+    email: string;
     password: string;
     hospitalName: string;
     contactInformation: string;

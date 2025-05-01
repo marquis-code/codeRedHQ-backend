@@ -34,7 +34,7 @@
 //     const query: any = {};
     
 //     if (hospitalId) {
-//       query.hospital = new MongooseSchema.Types.ObjectId(hospitalId);
+//       query.hospital = new Types.ObjectId(hospitalId);
 //     }
     
 //     if (status) {
@@ -117,7 +117,7 @@
 
 //   async getActiveAlertCount(hospitalId: string): Promise<number> {
 //     return this.emergencyAlertModel.countDocuments({
-//       hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+//       hospital: new Types.ObjectId(hospitalId),
 //       status: 'Active',
 //     }).exec();
 //   }
@@ -138,7 +138,7 @@
 //     return this.emergencyAlertModel.aggregate([
 //       { 
 //         $match: { 
-//           hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+//           hospital: new Types.ObjectId(hospitalId),
 //           ...dateFilter
 //         } 
 //       },
@@ -198,7 +198,7 @@ export class EmergencyAlertsService {
     const query: any = {};
     
     if (hospitalId) {
-      query.hospital = new MongooseSchema.Types.ObjectId(hospitalId);
+      query.hospital = new Types.ObjectId(hospitalId);
     }
     
     if (status) {
@@ -281,7 +281,7 @@ export class EmergencyAlertsService {
 
   async getActiveAlertCount(hospitalId: string): Promise<number> {
     return this.emergencyAlertModel.countDocuments({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       status: 'Active',
     }).exec();
   }
@@ -302,7 +302,7 @@ export class EmergencyAlertsService {
     return this.emergencyAlertModel.aggregate([
       { 
         $match: { 
-          hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+          hospital: new Types.ObjectId(hospitalId),
           ...dateFilter
         } 
       },

@@ -10,9 +10,11 @@ import { JwtStrategy } from './jwtStratergy';
 import { LocalStrategy } from './localStrategy';
 import { Hospital, HospitalSchema } from '../hospital/schemas/hospital.schema';
 import { UserModule } from '../user/user.module';
+import { HospitalModule } from '../hospital/hospital.module';
 
 @Module({
   imports: [
+    forwardRef(() => HospitalModule), // Use forwardRef to avoid circular dependency
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

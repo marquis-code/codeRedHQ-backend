@@ -16,7 +16,6 @@ exports.AuditService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
-const mongoose_3 = require("mongoose");
 const audit_schema_1 = require("./schemas/audit.schema");
 let AuditService = class AuditService {
     constructor(auditLogModel) {
@@ -28,7 +27,7 @@ let AuditService = class AuditService {
     }
     async findAll(hospitalId, query = {}) {
         const { page = 1, limit = 20, module, action, startDate, endDate, resourceId } = query;
-        const filter = { hospital: new mongoose_2.Schema.Types.ObjectId(hospitalId) };
+        const filter = { hospital: new mongoose_2.Types.ObjectId(hospitalId) };
         if (module) {
             filter.module = module;
         }
@@ -70,7 +69,7 @@ let AuditService = class AuditService {
     async logActivity(hospitalId, module, action, resourceId, previousState = null, newState = null, req) {
         var _a;
         const auditLog = {
-            hospital: new mongoose_3.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             module,
             action,
             resourceId,
@@ -88,7 +87,7 @@ let AuditService = class AuditService {
         const activityByModule = await this.auditLogModel.aggregate([
             {
                 $match: {
-                    hospital: new mongoose_2.Schema.Types.ObjectId(hospitalId),
+                    hospital: new mongoose_2.Types.ObjectId(hospitalId),
                     createdAt: { $gte: startDate },
                 },
             },
@@ -125,7 +124,7 @@ let AuditService = class AuditService {
         const activityByDay = await this.auditLogModel.aggregate([
             {
                 $match: {
-                    hospital: new mongoose_2.Schema.Types.ObjectId(hospitalId),
+                    hospital: new mongoose_2.Types.ObjectId(hospitalId),
                     createdAt: { $gte: startDate },
                 },
             },
@@ -160,7 +159,7 @@ let AuditService = class AuditService {
             activityByModule,
             activityByDay,
             totalActivities: await this.auditLogModel.countDocuments({
-                hospital: new mongoose_2.Schema.Types.ObjectId(hospitalId),
+                hospital: new mongoose_2.Types.ObjectId(hospitalId),
                 createdAt: { $gte: startDate },
             }).exec(),
         };
@@ -169,7 +168,7 @@ let AuditService = class AuditService {
 AuditService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(audit_schema_1.AuditLog.name)),
-    __metadata("design:paramtypes", [mongoose_3.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model])
 ], AuditService);
 exports.AuditService = AuditService;
 //# sourceMappingURL=audit.service.js.map

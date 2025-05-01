@@ -17,7 +17,6 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
-const mongoose_3 = require("mongoose");
 const staff_schema_1 = require("./schemas/staff.schema");
 let StaffingService = class StaffingService {
     constructor(staffModel, eventEmitter) {
@@ -36,7 +35,7 @@ let StaffingService = class StaffingService {
     async findAll(hospitalId, department, availability) {
         const query = { isActive: true };
         if (hospitalId) {
-            query.hospital = new mongoose_3.Schema.Types.ObjectId(hospitalId);
+            query.hospital = new mongoose_2.Types.ObjectId(hospitalId);
         }
         if (department) {
             query.department = department;
@@ -95,13 +94,13 @@ let StaffingService = class StaffingService {
     }
     async getStaffSummary(hospitalId) {
         try {
-            new mongoose_3.Schema.Types.ObjectId(hospitalId);
+            new mongoose_2.Types.ObjectId(hospitalId);
         }
         catch (error) {
             throw new common_1.BadRequestException('Invalid hospital ID');
         }
         const aggregationResult = await this.staffModel.aggregate([
-            { $match: { hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId), isActive: true } },
+            { $match: { hospital: new mongoose_2.Types.ObjectId(hospitalId), isActive: true } },
             { $group: {
                     _id: '$availability',
                     count: { $sum: 1 },

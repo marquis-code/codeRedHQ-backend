@@ -14,10 +14,15 @@ export class BedspaceController {
     return this.bedspaceService.create(createBedspaceDto);
   }
 
+  // @Get()
+  // async findAll(@Query('hospitalId') hospitalId?: string): Promise<BedspaceDocument[]> {
+  //   return this.bedspaceService.findAllBedspaces(hospitalId);
+  // }
+
   @Get()
-  async findAll(@Query('hospitalId') hospitalId?: string): Promise<BedspaceDocument[]> {
-    return this.bedspaceService.findAllBedspaces(hospitalId);
-  }
+async findAll(@Query('hospitalId') hospitalId?: string): Promise<BedspaceDocument[]> {
+  return this.bedspaceService.findAllBedspaces(hospitalId);
+}
 
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<BedspaceDocument> {

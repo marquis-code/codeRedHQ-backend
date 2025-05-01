@@ -14,6 +14,7 @@ import { ReportsModule } from './reports/reports.module';
 import { MapModule } from './map/map.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { AuditModule } from './audit/audit.module'; // Add this line
+import { SurgeModule } from './surge/surge.module';
 
 @Module({
   imports: [
@@ -60,7 +61,8 @@ import { AuditModule } from './audit/audit.module'; // Add this line
     MapModule,
     WebsocketModule,
     AuditModule, // Add this line
-    UserModule
+    UserModule,
+    SurgeModule
   ],
 })
 export class AppModule {}

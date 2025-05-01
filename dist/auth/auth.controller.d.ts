@@ -6,4 +6,8 @@ export declare class AuthController {
     constructor(authService: AuthService);
     login(req: any): Promise<any>;
     getUser(req: any): Promise<any>;
+    hospitalLogin(loginDto: {
+        usernameOrEmail: string;
+        password: string;
+    }): Promise<any>;
 }

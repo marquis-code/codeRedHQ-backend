@@ -17,7 +17,6 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
-const mongoose_3 = require("mongoose");
 const bedspace_schema_1 = require("./schemas/bedspace.schema");
 let BedspaceService = class BedspaceService {
     constructor(bedspaceModel, eventEmitter) {
@@ -37,7 +36,7 @@ let BedspaceService = class BedspaceService {
         return savedBedspace;
     }
     async findAllBedspaces(hospitalId) {
-        const query = hospitalId ? { hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId) } : {};
+        const query = hospitalId ? { hospital: new mongoose_2.Types.ObjectId(hospitalId) } : {};
         return this.bedspaceModel.find(query).exec();
     }
     async findOne(id) {
@@ -88,13 +87,13 @@ let BedspaceService = class BedspaceService {
     }
     async getHospitalSummary(hospitalId) {
         try {
-            new mongoose_3.Schema.Types.ObjectId(hospitalId);
+            new mongoose_2.Types.ObjectId(hospitalId);
         }
         catch (error) {
             throw new common_1.BadRequestException('Invalid hospital ID');
         }
         const aggregationResult = await this.bedspaceModel.aggregate([
-            { $match: { hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId) } },
+            { $match: { hospital: new mongoose_2.Types.ObjectId(hospitalId) } },
             { $group: {
                     _id: null,
                     totalBeds: { $sum: '$totalBeds' },

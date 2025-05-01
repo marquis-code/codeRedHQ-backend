@@ -15,7 +15,8 @@ declare class DoctorOnDutyContactDto {
 }
 export declare class UpdateHospitalDto {
     readonly uuid?: never;
-    password?: string;
+    email: string;
+    password: string;
     hospitalName?: string;
     contactInformation?: string;
     address?: string;

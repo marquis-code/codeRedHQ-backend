@@ -5,6 +5,7 @@ import {
   Request,
   UseGuards,
   Get,
+  Body, UnauthorizedException
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.gaurd';
@@ -34,5 +35,20 @@ export class AuthController {
   @Get('viewProfile')
   async getUser(@Request() req): Promise<any> {
     return req.user;
+  }
+
+  @Post('hospital/login')
+  async hospitalLogin(
+    @Body() loginDto: { usernameOrEmail: string; password: string },
+  ) {
+    const { usernameOrEmail, password } = loginDto;
+    
+    const result = await this.authService.validateHospital(usernameOrEmail, password);
+    
+    if (!result) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    
+    return result;
   }
 }

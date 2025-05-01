@@ -21,6 +21,7 @@ const reports_module_1 = require("./reports/reports.module");
 const map_module_1 = require("./map/map.module");
 const websocket_module_1 = require("./websocket/websocket.module");
 const audit_module_1 = require("./audit/audit.module");
+const surge_module_1 = require("./surge/surge.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -53,7 +54,8 @@ AppModule = __decorate([
             map_module_1.MapModule,
             websocket_module_1.WebsocketModule,
             audit_module_1.AuditModule,
-            user_module_1.UserModule
+            user_module_1.UserModule,
+            surge_module_1.SurgeModule
         ],
     })
 ], AppModule);

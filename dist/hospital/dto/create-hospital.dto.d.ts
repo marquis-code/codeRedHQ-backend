@@ -1,8 +1,8 @@
 declare class OperatingHoursDto {
     day: string;
-    open: string;
-    close: string;
-    is24Hours: boolean;
+    open?: string;
+    close?: string;
+    is24Hours?: boolean;
 }
 declare class EmergencyEquipmentDto {
     name: string;
@@ -14,9 +14,9 @@ declare class DoctorOnDutyContactDto {
     contact: string;
 }
 export declare class CreateHospitalDto {
-    uuid?: string;
-    password: string;
     hospitalName: string;
+    email: string;
+    password: string;
     contactInformation: string;
     address: string;
     website?: string;
@@ -38,6 +38,5 @@ export declare class CreateHospitalDto {
     telemedicineServices?: string;
     latitude: number;
     longitude: number;
-    isActive?: boolean;
 }
 export {};

@@ -4,10 +4,24 @@ import * as bcrypt from 'bcrypt';
 
 export type HospitalDocument = Hospital & Document;
 
+// Define interface for methods
+export interface HospitalMethods {
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+// Define the Hospital type with methods
+export type HospitalModel = HospitalDocument & HospitalMethods;
+
 @Schema({ timestamps: true })
 export class Hospital {
+  // MongoDB automatically adds _id, but we'll define it for TypeScript
+  _id: MongooseSchema.Types.ObjectId;
+
   @Prop({ required: true, unique: true })
-  uuid: string;
+  username: string;
+
+  @Prop({ required: true, unique: true })
+  email: string;
 
   @Prop({ required: true })
   password: string;
@@ -96,6 +110,9 @@ export class Hospital {
 
 export const HospitalSchema = SchemaFactory.createForClass(Hospital);
 
+// Add geospatial index for location-based queries
+// HospitalSchema.index({ latitude: 1, longitude: 1 }, { type: '2dsphere' });
+
 // Hash password before saving
 HospitalSchema.pre('save', async function(next) {
   const hospital = this as HospitalDocument;
@@ -112,7 +129,7 @@ HospitalSchema.pre('save', async function(next) {
   }
 });
 
-// Method to compare passwords
+// Method to compare passwords - properly defined as a method
 HospitalSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };

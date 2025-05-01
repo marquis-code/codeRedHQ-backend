@@ -18,11 +18,13 @@ const jwtStratergy_1 = require("./jwtStratergy");
 const localStrategy_1 = require("./localStrategy");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const user_module_1 = require("../user/user.module");
+const hospital_module_1 = require("../hospital/hospital.module");
 let AuthModule = class AuthModule {
 };
 AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            (0, common_1.forwardRef)(() => hospital_module_1.HospitalModule),
             passport_1.PassportModule,
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
