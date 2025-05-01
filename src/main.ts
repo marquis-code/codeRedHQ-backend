@@ -10,18 +10,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   
-  // Global middleware
-  app.use(compression());
-  app.use(helmet()); // Fixed: Adding parentheses to call the helmet function
 
-    // CORS configuration - properly configured for production
+  app.use(compression());
+  app.use(helmet()); 
+
     const allowedOrigins = configService.get('ALLOWED_ORIGINS') || 
     'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173';
   
   // Enable CORS
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
       if (!origin) {
         return callback(null, true);
       }
