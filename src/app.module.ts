@@ -15,6 +15,7 @@ import { MapModule } from './map/map.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { AuditModule } from './audit/audit.module'; // Add this line
 import { SurgeModule } from './surge/surge.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { SurgeModule } from './surge/surge.module';
     
     // Application modules
     AuthModule,
+    DatabaseModule,
     HospitalModule,
     BedspaceModule,
     StaffingModule,
