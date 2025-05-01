@@ -20,7 +20,7 @@ import { HospitalModule } from '../hospital/hospital.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+        secret: configService.get<string>('JWT_SECRET') || 'default_secret_change_in_production',
         signOptions: { expiresIn: '1d' },
       }),
     }),

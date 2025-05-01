@@ -56,12 +56,12 @@ export class AuthService {
   }
   
   async login(loginDto: LoginDto): Promise<any> {
-    const { uuid, email, password } = loginDto;
+    const { usernameOrEmail, password } = loginDto;
     
     // Determine if this is a hospital login or user login
-    if (uuid) {
+    if (usernameOrEmail) {
       // Hospital login
-      const hospital = await this.validateHospital(uuid, password);
+      const hospital = await this.validateHospital(usernameOrEmail, password);
       
       const payload = {
         sub: hospital.id,
@@ -77,7 +77,7 @@ export class AuthService {
       };
     } else {
       // User login
-      const user = await this.validateUser(email, password);
+      const user = await this.validateUser(usernameOrEmail, password);
       
       const payload = {
         sub: user._id,
@@ -130,29 +130,59 @@ export class AuthService {
     });
   }
 
+  // async validateHospital(usernameOrEmail: string, password: string): Promise<any> {
+  //   const hospital = await this.hospitalService.validateHospital(usernameOrEmail, password);
+    
+  //   if (!hospital) {
+  //     return null;
+  //   }
+    
+  //   // Generate JWT token
+  //   const payload = { 
+  //     sub: hospital._id, 
+  //     username: hospital.username,
+  //     email: hospital.email,
+  //     type: 'hospital'
+  //   };
+    
+  //   return {
+  //     access_token: this.jwtService.sign(payload),
+  //     hospital: {
+  //       id: hospital._id,
+  //       username: hospital.username,
+  //       email: hospital.email,
+  //       hospitalName: hospital.hospitalName,
+  //     }
+  //   };
+  // }
   async validateHospital(usernameOrEmail: string, password: string): Promise<any> {
-    const hospital = await this.hospitalService.validateHospital(usernameOrEmail, password);
-    
-    if (!hospital) {
-      return null;
-    }
-    
-    // Generate JWT token
-    const payload = { 
-      sub: hospital._id, 
-      username: hospital.username,
-      email: hospital.email,
-      type: 'hospital'
-    };
-    
-    return {
-      access_token: this.jwtService.sign(payload),
-      hospital: {
-        id: hospital._id,
+    try {
+      const hospital = await this.hospitalService.validateHospital(usernameOrEmail, password);
+      
+      if (!hospital) {
+        return null;
+      }
+      
+      // Generate JWT token
+      const payload = { 
+        sub: hospital._id, 
         username: hospital.username,
         email: hospital.email,
-        hospitalName: hospital.hospitalName,
-      }
-    };
+        type: 'hospital'
+      };
+      
+      return {
+        access_token: this.jwtService.sign(payload),
+        hospital: {
+          id: hospital._id,
+          username: hospital.username,
+          email: hospital.email,
+          hospitalName: hospital.hospitalName,
+        }
+      };
+    } catch (error) {
+      console.error('Error validating hospital:', error);
+      return null;
+    }
   }
 }

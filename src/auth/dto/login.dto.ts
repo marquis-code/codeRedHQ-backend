@@ -1,16 +1,28 @@
-import { IsNotEmpty,IsString, IsEmail, IsStrongPassword } from 'class-validator';
-import { Type } from 'class-transformer';
+// import { IsNotEmpty,IsString, IsEmail, IsStrongPassword } from 'class-validator';
+// import { Type } from 'class-transformer';
+
+// export class LoginDto {
+//    @IsString()
+//    @IsNotEmpty()
+//    uuid?: string;
+
+//   @IsEmail()
+//   @IsNotEmpty()
+//   email: string;
+
+//   @IsStrongPassword()
+//   @IsNotEmpty()
+//   password: string;
+// }
+
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
-   @IsString()
-   @IsNotEmpty()
-   uuid?: string;
-
-  @IsEmail()
   @IsNotEmpty()
-  email: string;
+  @IsString()
+  usernameOrEmail: string;
 
-  @IsStrongPassword()
   @IsNotEmpty()
+  @IsString()
   password: string;
 }
