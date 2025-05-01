@@ -71,8 +71,11 @@ __decorate([
     __metadata("design:type", void 0)
 ], UpdateHospitalDto.prototype, "uuid", void 0);
 __decorate([
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], UpdateHospitalDto.prototype, "email", void 0);
+__decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateHospitalDto.prototype, "password", void 0);
 __decorate([

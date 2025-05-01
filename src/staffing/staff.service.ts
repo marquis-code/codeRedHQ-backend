@@ -35,7 +35,7 @@ export class StaffingService {
     const query: any = { isActive: true };
     
     if (hospitalId) {
-      query.hospital = new MongooseSchema.Types.ObjectId(hospitalId)
+      query.hospital = new Types.ObjectId(hospitalId)
     }
     
     if (department) {
@@ -129,14 +129,14 @@ export class StaffingService {
   async getStaffSummary(hospitalId: string): Promise<any> {
     // Validate hospital ID
     try {
-      new MongooseSchema.Types.ObjectId(hospitalId);
+      new Types.ObjectId(hospitalId);
     } catch (error) {
       throw new BadRequestException('Invalid hospital ID');
     }
     
     // Aggregate staff data for the hospital
     const aggregationResult = await this.staffModel.aggregate([
-      { $match: { hospital: new MongooseSchema.Types.ObjectId(hospitalId), isActive: true } },
+      { $match: { hospital: new Types.ObjectId(hospitalId), isActive: true } },
       { $group: {
           _id: '$availability',
           count: { $sum: 1 },

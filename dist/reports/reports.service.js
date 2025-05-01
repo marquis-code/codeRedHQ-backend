@@ -16,7 +16,6 @@ exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
-const mongoose_3 = require("mongoose");
 const bedspace_schema_1 = require("../bedspace/schemas/bedspace.schema");
 const emergency_alerts_schema_1 = require("../emergency-alerts/schemas/emergency-alerts.schema");
 const staff_schema_1 = require("../staffing/schemas/staff.schema");
@@ -34,7 +33,7 @@ let ReportsService = class ReportsService {
             throw new common_1.BadRequestException('Start date and end date are required');
         }
         const bedspaces = await this.bedspaceModel.find({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
         }).exec();
         const historyData = [];
         bedspaces.forEach(bedspace => {
@@ -88,7 +87,7 @@ let ReportsService = class ReportsService {
             throw new common_1.BadRequestException('Start date and end date are required');
         }
         const alerts = await this.emergencyAlertModel.find({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             createdAt: { $gte: startDate, $lte: endDate }
         }).exec();
         const groupedByDate = alerts.reduce((acc, alert) => {
@@ -132,7 +131,7 @@ let ReportsService = class ReportsService {
             throw new common_1.BadRequestException('Start date and end date are required');
         }
         const staff = await this.staffModel.find({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             isActive: true,
             'schedule.date': { $gte: startDate, $lte: endDate }
         }).exec();
@@ -229,7 +228,7 @@ let ReportsService = class ReportsService {
         const lastWeek = new Date(today);
         lastWeek.setDate(lastWeek.getDate() - 7);
         const bedspaceSummary = await this.bedspaceModel.aggregate([
-            { $match: { hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId) } },
+            { $match: { hospital: new mongoose_2.Types.ObjectId(hospitalId) } },
             { $group: {
                     _id: null,
                     totalBeds: { $sum: '$totalBeds' },
@@ -239,7 +238,7 @@ let ReportsService = class ReportsService {
             }
         ]).exec();
         const yesterdayBedspace = await this.bedspaceModel.aggregate([
-            { $match: { hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId) } },
+            { $match: { hospital: new mongoose_2.Types.ObjectId(hospitalId) } },
             { $unwind: '$history' },
             { $match: { 'history.date': { $gte: yesterday, $lt: today } } },
             { $group: {
@@ -251,21 +250,21 @@ let ReportsService = class ReportsService {
             }
         ]).exec();
         const activeAlerts = await this.emergencyAlertModel.countDocuments({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             status: 'Active'
         }).exec();
         const lastWeekAlerts = await this.emergencyAlertModel.countDocuments({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             createdAt: { $gte: lastWeek, $lt: today }
         }).exec();
         const staffOnGround = await this.staffModel.countDocuments({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             isActive: true,
             availability: 'Available'
         }).exec();
         const yesterdayStaff = await this.staffModel.aggregate([
             { $match: {
-                    hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+                    hospital: new mongoose_2.Types.ObjectId(hospitalId),
                     isActive: true
                 }
             },

@@ -13,11 +13,13 @@ const event_emitter_1 = require("@nestjs/event-emitter");
 const hospital_controller_1 = require("./hospital.controller");
 const hospital_service_1 = require("./hospital.service");
 const hospital_schema_1 = require("./schemas/hospital.schema");
+const auth_module_1 = require("../auth/auth.module");
 let HospitalModule = class HospitalModule {
 };
 HospitalModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            (0, common_1.forwardRef)(() => auth_module_1.AuthModule),
             mongoose_1.MongooseModule.forFeature([
                 { name: hospital_schema_1.Hospital.name, schema: hospital_schema_1.HospitalSchema },
             ]),

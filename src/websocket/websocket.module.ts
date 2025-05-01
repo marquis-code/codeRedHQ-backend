@@ -1,23 +1,3 @@
-// import { Module } from '@nestjs/common';
-// import { MongooseModule } from '@nestjs/mongoose';
-
-// import { BedspaceGateway } from './gateways/bedspace.gateway';
-// import { Hospital, HospitalSchema } from '../hospital/schemas/hospital.schema';
-// import { Bedspace, BedspaceSchema } from '../bedspace/schemas/bedspace.schema';
-
-// @Module({
-//   imports: [
-//     MongooseModule.forFeature([
-//       { name: Hospital.name, schema: HospitalSchema },
-//       { name: Bedspace.name, schema: BedspaceSchema },
-//     ]),
-//   ],
-//   providers: [BedspaceGateway],
-//   exports: [BedspaceGateway],
-// })
-// export class WebsocketModule {}
-
-
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';

@@ -1,26 +1,25 @@
-import { IsString, IsArray, IsBoolean, IsOptional, IsNumber, ValidateNested, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEmail, IsArray, ValidateNested, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OperatingHoursDto {
   @IsString()
-  @IsNotEmpty()
   day: string;
 
   @IsString()
-  @IsNotEmpty()
-  open: string;
+  @IsOptional()
+  open?: string;
 
   @IsString()
-  @IsNotEmpty()
-  close: string;
+  @IsOptional()
+  close?: string;
 
   @IsBoolean()
-  is24Hours: boolean;
+  @IsOptional()
+  is24Hours?: boolean;
 }
 
 class EmergencyEquipmentDto {
   @IsString()
-  @IsNotEmpty()
   name: string;
 
   @IsString()
@@ -29,37 +28,29 @@ class EmergencyEquipmentDto {
 
 class DoctorOnDutyContactDto {
   @IsString()
-  @IsNotEmpty()
   specialty: string;
 
   @IsString()
-  @IsNotEmpty()
   name: string;
 
   @IsString()
-  @IsNotEmpty()
   contact: string;
 }
 
 export class CreateHospitalDto {
   @IsString()
-  @IsOptional()
-  uuid?: string;
+  hospitalName: string;
+
+  @IsEmail()
+  email: string;
 
   @IsString()
-  @IsNotEmpty()
   password: string;
 
   @IsString()
-  @IsNotEmpty()
-  hospitalName: string;
-
-  @IsString()
-  @IsNotEmpty()
   contactInformation: string;
 
   @IsString()
-  @IsNotEmpty()
   address: string;
 
   @IsString()
@@ -140,14 +131,8 @@ export class CreateHospitalDto {
   telemedicineServices?: string;
 
   @IsNumber()
-  @IsNotEmpty()
   latitude: number;
 
   @IsNumber()
-  @IsNotEmpty()
   longitude: number;
-
-  @IsBoolean()
-  @IsOptional()
-  isActive?: boolean;
 }

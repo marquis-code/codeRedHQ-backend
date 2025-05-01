@@ -34,8 +34,14 @@ export class BedspaceService {
     return savedBedspace;
   }
 
+  // async findAllBedspaces(hospitalId?: string): Promise<BedspaceDocument[]> {
+  //   const query = hospitalId ? { hospital: new Types.ObjectId(hospitalId) } : {};
+  //   return this.bedspaceModel.find(query).exec();
+  // }
+
   async findAllBedspaces(hospitalId?: string): Promise<BedspaceDocument[]> {
-    const query = hospitalId ? { hospital: new MongooseSchema.Types.ObjectId(hospitalId) } : {};
+    // Fix: Use Types.ObjectId instead of MongooseSchema.Types.ObjectId
+    const query = hospitalId ? { hospital: new Types.ObjectId(hospitalId) } : {};
     return this.bedspaceModel.find(query).exec();
   }
 
@@ -111,14 +117,14 @@ export class BedspaceService {
     // Validate hospital ID
     try {
       // Try to create a new ObjectId to validate it
-      new MongooseSchema.Types.ObjectId(hospitalId)
+      new Types.ObjectId(hospitalId)
     } catch (error) {
       throw new BadRequestException('Invalid hospital ID');
     }
     
     // Aggregate bedspace data for the hospital
     const aggregationResult = await this.bedspaceModel.aggregate([
-      { $match: { hospital: new MongooseSchema.Types.ObjectId(hospitalId) } },
+      { $match: { hospital: new Types.ObjectId(hospitalId) } },
       { $group: {
           _id: null,
           totalBeds: { $sum: '$totalBeds' },

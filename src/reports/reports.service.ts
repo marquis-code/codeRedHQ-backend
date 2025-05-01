@@ -30,7 +30,7 @@ export class ReportsService {
     
     // Get bedspace history for the date range
     const bedspaces = await this.bedspaceModel.find({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
     }).exec();
     
     // Extract history entries within the date range
@@ -103,7 +103,7 @@ export class ReportsService {
     
     // Get alerts for the date range
     const alerts = await this.emergencyAlertModel.find({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       createdAt: { $gte: startDate, $lte: endDate }
     }).exec();
     
@@ -164,7 +164,7 @@ export class ReportsService {
     
     // Get staff schedule for the date range
     const staff = await this.staffModel.find({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       isActive: true,
       'schedule.date': { $gte: startDate, $lte: endDate }
     }).exec();
@@ -287,7 +287,7 @@ export class ReportsService {
     
     // Get bedspace summary
     const bedspaceSummary = await this.bedspaceModel.aggregate([
-      { $match: { hospital: new MongooseSchema.Types.ObjectId(hospitalId) } },
+      { $match: { hospital: new Types.ObjectId(hospitalId) } },
       { $group: {
           _id: null,
           totalBeds: { $sum: '$totalBeds' },
@@ -299,7 +299,7 @@ export class ReportsService {
     
     // Get yesterday's bedspace data
     const yesterdayBedspace = await this.bedspaceModel.aggregate([
-      { $match: { hospital: new MongooseSchema.Types.ObjectId(hospitalId) } },
+      { $match: { hospital: new Types.ObjectId(hospitalId) } },
       { $unwind: '$history' },
       { $match: { 'history.date': { $gte: yesterday, $lt: today } } },
       { $group: {
@@ -313,19 +313,19 @@ export class ReportsService {
     
     // Get active alerts count
     const activeAlerts = await this.emergencyAlertModel.countDocuments({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       status: 'Active'
     }).exec();
     
     // Get last week's alerts count
     const lastWeekAlerts = await this.emergencyAlertModel.countDocuments({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       createdAt: { $gte: lastWeek, $lt: today }
     }).exec();
     
     // Get staff on ground
     const staffOnGround = await this.staffModel.countDocuments({
-      hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+      hospital: new Types.ObjectId(hospitalId),
       isActive: true,
       availability: 'Available'
     }).exec();
@@ -333,7 +333,7 @@ export class ReportsService {
     // Get yesterday's staff on ground
     const yesterdayStaff = await this.staffModel.aggregate([
       { $match: { 
-          hospital: new MongooseSchema.Types.ObjectId(hospitalId),
+          hospital: new Types.ObjectId(hospitalId),
           isActive: true
         } 
       },

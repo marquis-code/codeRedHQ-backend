@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as compression from 'compression';
-import * as helmet from 'helmet';
+import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
@@ -12,7 +12,7 @@ async function bootstrap() {
   
   // Global middleware
   app.use(compression());
-  app.use(helmet);
+  app.use(helmet()); // Fixed: Adding parentheses to call the helmet function
   
   // Enable CORS
   app.enableCors();

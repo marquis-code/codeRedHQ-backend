@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsBoolean, IsOptional, IsNumber, ValidateNested } from 'class-validator';
+import { IsString, IsArray, IsEmail, IsBoolean, IsOptional, IsNumber, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OperatingHoursDto {
@@ -49,9 +49,13 @@ export class UpdateHospitalDto {
   @IsOptional()
   readonly uuid?: never;
 
+  
+
+  @IsEmail()
+  email: string;
+
   @IsString()
-  @IsOptional()
-  password?: string;
+  password: string;
 
   @IsString()
   @IsOptional()

@@ -34,6 +34,14 @@ let AuthController = AuthController_1 = class AuthController {
     async getUser(req) {
         return req.user;
     }
+    async hospitalLogin(loginDto) {
+        const { usernameOrEmail, password } = loginDto;
+        const result = await this.authService.validateHospital(usernameOrEmail, password);
+        if (!result) {
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        return result;
+    }
 };
 __decorate([
     (0, common_1.Post)('login'),
@@ -51,6 +59,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getUser", null);
+__decorate([
+    (0, common_1.Post)('hospital/login'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "hospitalLogin", null);
 AuthController = AuthController_1 = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

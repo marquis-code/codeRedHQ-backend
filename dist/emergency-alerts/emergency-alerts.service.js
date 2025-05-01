@@ -17,7 +17,6 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
-const mongoose_3 = require("mongoose");
 const emergency_alerts_schema_1 = require("./schemas/emergency-alerts.schema");
 let EmergencyAlertsService = class EmergencyAlertsService {
     constructor(emergencyAlertModel, eventEmitter) {
@@ -36,7 +35,7 @@ let EmergencyAlertsService = class EmergencyAlertsService {
     async findAll(hospitalId, status) {
         const query = {};
         if (hospitalId) {
-            query.hospital = new mongoose_3.Schema.Types.ObjectId(hospitalId);
+            query.hospital = new mongoose_2.Types.ObjectId(hospitalId);
         }
         if (status) {
             query.status = status;
@@ -90,7 +89,7 @@ let EmergencyAlertsService = class EmergencyAlertsService {
     }
     async getActiveAlertCount(hospitalId) {
         return this.emergencyAlertModel.countDocuments({
-            hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId),
+            hospital: new mongoose_2.Types.ObjectId(hospitalId),
             status: 'Active',
         }).exec();
     }
@@ -104,7 +103,7 @@ let EmergencyAlertsService = class EmergencyAlertsService {
         }
         return this.emergencyAlertModel.aggregate([
             {
-                $match: Object.assign({ hospital: new mongoose_3.Schema.Types.ObjectId(hospitalId) }, dateFilter)
+                $match: Object.assign({ hospital: new mongoose_2.Types.ObjectId(hospitalId) }, dateFilter)
             },
             {
                 $group: {
