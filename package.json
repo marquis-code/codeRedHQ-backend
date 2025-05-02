@@ -10,7 +10,7 @@
         "drop-uuid-index": "ts-node scripts/drop-uuid-index.ts",
         "build": "NODE_OPTIONS=--max-old-space-size=2048 nest build && echo 'Build complete' && ls -la dist",
         "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-        "start": "node --max-old-space-size=2048 dist/main",
+       "start": "node --max-old-space-size=2048 dist/main.js",
         "start:dev": "nest start --watch",
         "start:debug": "nest start --debug --watch",
         "start:prod": "node dist/main",
