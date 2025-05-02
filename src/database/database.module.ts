@@ -39,10 +39,6 @@ export class DatabaseModule implements OnModuleInit {
       
       this.logger.log(`Database connection initialized with URI: ${mongoUri}`);
       
-      // IMPORTANT: Remove any code that accesses listCollections
-      // Comment out or remove the line that's causing the error (line 24)
-      // this.something.listCollections() - REMOVE THIS
-      
       this.logger.log('Database initialization complete');
     } catch (error) {
       this.logger.error(`Error during database initialization: ${error.message}`);
