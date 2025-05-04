@@ -115,6 +115,20 @@ __decorate([
     __metadata("design:type", Number)
 ], Hospital.prototype, "longitude", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({
+        type: {
+            type: String,
+            enum: ['Point'],
+            required: true
+        },
+        coordinates: {
+            type: [Number],
+            required: true
+        }
+    }),
+    __metadata("design:type", Object)
+], Hospital.prototype, "location", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ default: true }),
     __metadata("design:type", Boolean)
 ], Hospital.prototype, "isActive", void 0);
@@ -123,8 +137,15 @@ Hospital = __decorate([
 ], Hospital);
 exports.Hospital = Hospital;
 exports.HospitalSchema = mongoose_1.SchemaFactory.createForClass(Hospital);
+exports.HospitalSchema.index({ location: '2dsphere' });
 exports.HospitalSchema.pre('save', async function (next) {
     const hospital = this;
+    if (hospital.latitude && hospital.longitude) {
+        hospital.location = {
+            type: 'Point',
+            coordinates: [hospital.longitude, hospital.latitude]
+        };
+    }
     if (!hospital.isModified('password'))
         return next();
     try {

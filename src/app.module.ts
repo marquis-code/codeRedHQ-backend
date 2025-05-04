@@ -16,6 +16,7 @@ import { WebsocketModule } from './websocket/websocket.module';
 import { AuditModule } from './audit/audit.module'; // Add this line
 import { SurgeModule } from './surge/surge.module';
 import { DatabaseModule } from './database/database.module';
+import { MigrationsModule } from './migrations/migrations.module';
 
 @Module({
   imports: [
@@ -64,7 +65,8 @@ import { DatabaseModule } from './database/database.module';
     WebsocketModule,
     AuditModule, // Add this line
     UserModule,
-    SurgeModule
+    SurgeModule,
+    MigrationsModule,
   ],
 })
 export class AppModule {}

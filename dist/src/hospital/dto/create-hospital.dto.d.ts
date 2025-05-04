@@ -8,6 +8,10 @@ declare class EmergencyEquipmentDto {
     name: string;
     details: string;
 }
+declare class LocationDto {
+    type: string;
+    coordinates: number[];
+}
 declare class DoctorOnDutyContactDto {
     specialty: string;
     name: string;
@@ -38,5 +42,6 @@ export declare class CreateHospitalDto {
     telemedicineServices?: string;
     latitude: number;
     longitude: number;
+    location?: LocationDto;
 }
 export {};

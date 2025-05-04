@@ -43,6 +43,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], EmergencyEquipmentDto.prototype, "details", void 0);
+class LocationDto {
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocationDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    __metadata("design:type", Array)
+], LocationDto.prototype, "coordinates", void 0);
 class DoctorOnDutyContactDto {
 }
 __decorate([
@@ -181,5 +191,12 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateHospitalDto.prototype, "longitude", void 0);
+__decorate([
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => LocationDto),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", LocationDto)
+], CreateHospitalDto.prototype, "location", void 0);
 exports.CreateHospitalDto = CreateHospitalDto;
 //# sourceMappingURL=create-hospital.dto.js.map

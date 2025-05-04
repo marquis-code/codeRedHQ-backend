@@ -23,6 +23,7 @@ const websocket_module_1 = require("./websocket/websocket.module");
 const audit_module_1 = require("./audit/audit.module");
 const surge_module_1 = require("./surge/surge.module");
 const database_module_1 = require("./database/database.module");
+const migrations_module_1 = require("./migrations/migrations.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -57,7 +58,8 @@ AppModule = __decorate([
             websocket_module_1.WebsocketModule,
             audit_module_1.AuditModule,
             user_module_1.UserModule,
-            surge_module_1.SurgeModule
+            surge_module_1.SurgeModule,
+            migrations_module_1.MigrationsModule,
         ],
     })
 ], AppModule);

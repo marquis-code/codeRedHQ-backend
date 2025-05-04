@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEmail, IsArray, ValidateNested, IsBoolean } from 'class-validator';
+import { IsString, IsNumber, IsObject, IsOptional, IsEmail, IsArray, ValidateNested, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OperatingHoursDto {
@@ -25,6 +25,16 @@ class EmergencyEquipmentDto {
   @IsString()
   details: string;
 }
+
+class LocationDto {
+  @IsString()
+  type: string;
+
+  @IsArray()
+  coordinates: number[];
+}
+
+
 
 class DoctorOnDutyContactDto {
   @IsString()
@@ -135,4 +145,10 @@ export class CreateHospitalDto {
 
   @IsNumber()
   longitude: number;
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => LocationDto)
+  @IsOptional()
+  location?: LocationDto;
 }

@@ -67,6 +67,10 @@ export declare class Hospital {
     telemedicineServices: string;
     latitude: number;
     longitude: number;
+    location: {
+        type: string;
+        coordinates: number[];
+    };
     isActive: boolean;
 }
 export declare const HospitalSchema: MongooseSchema<Document<Hospital, any, any>, import("mongoose").Model<Document<Hospital, any, any>, any, any, any, Document<unknown, any, Document<Hospital, any, any>> & Document<Hospital, any, any> & Required<{

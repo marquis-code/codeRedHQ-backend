@@ -103,6 +103,23 @@ export class Hospital {
 
   @Prop({ required: true, type: Number })
   longitude: number;
+
+   // Add GeoJSON location field
+   @Prop({
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: true
+    },
+    coordinates: {
+      type: [Number],
+      required: true
+    }
+  })
+  location: {
+    type: string;
+    coordinates: number[];
+  };
   
   @Prop({ default: true })
   isActive: boolean;
@@ -113,9 +130,20 @@ export const HospitalSchema = SchemaFactory.createForClass(Hospital);
 // Add geospatial index for location-based queries
 // HospitalSchema.index({ latitude: 1, longitude: 1 }, { type: '2dsphere' });
 
+// Add proper geospatial index for location-based queries
+HospitalSchema.index({ location: '2dsphere' });
+
 // Hash password before saving
 HospitalSchema.pre('save', async function(next) {
   const hospital = this as HospitalDocument;
+
+   // Set the GeoJSON location from latitude and longitude
+   if (hospital.latitude && hospital.longitude) {
+    hospital.location = {
+      type: 'Point',
+      coordinates: [hospital.longitude, hospital.latitude] // Note: GeoJSON uses [lng, lat] order
+    };
+  }
   
   // Only hash the password if it has been modified or is new
   if (!hospital.isModified('password')) return next();
