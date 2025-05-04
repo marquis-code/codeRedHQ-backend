@@ -56,7 +56,8 @@ Bedspace = __decorate([
 ], Bedspace);
 exports.Bedspace = Bedspace;
 exports.BedspaceSchema = mongoose_1.SchemaFactory.createForClass(Bedspace);
-exports.BedspaceSchema.pre('save', function (next) {
+const hospitalUpdateQueue = new Map();
+exports.BedspaceSchema.pre('save', async function (next) {
     const bedspace = this;
     bedspace.lastUpdated = new Date();
     const occupancyPercentage = (bedspace.occupiedBeds / bedspace.totalBeds) * 100;
@@ -79,4 +80,132 @@ exports.BedspaceSchema.pre('save', function (next) {
     }
     next();
 });
+exports.BedspaceSchema.post('save', async function () {
+    const bedspace = this;
+    try {
+        const HospitalModel = (0, mongoose_2.model)('Hospital');
+        const hospital = await HospitalModel.findById(bedspace.hospital);
+        if (hospital) {
+            await hospital.updateBedspaceSummary();
+        }
+    }
+    catch (error) {
+        console.error('Error updating hospital after bedspace save:', error);
+    }
+});
+exports.BedspaceSchema.post('findOneAndUpdate', async function (doc) {
+    if (doc) {
+        try {
+            const HospitalModel = (0, mongoose_2.model)('Hospital');
+            const hospital = await HospitalModel.findById(doc.hospital);
+            if (hospital) {
+                await hospital.updateBedspaceSummary();
+            }
+        }
+        catch (error) {
+            console.error('Error updating hospital after bedspace update:', error);
+        }
+    }
+});
+exports.BedspaceSchema.pre('deleteOne', { document: true, query: false }, async function () {
+    const bedspace = this;
+    if (bedspace.hospital) {
+        try {
+            const HospitalModel = (0, mongoose_2.model)('Hospital');
+            const hospital = await HospitalModel.findById(bedspace.hospital);
+            if (hospital) {
+                await hospital.updateBedspaceSummary();
+            }
+        }
+        catch (error) {
+            console.error('Error updating hospital after bedspace deletion:', error);
+        }
+    }
+});
+exports.BedspaceSchema.pre('findOneAndDelete', async function () {
+    try {
+        const bedspace = await this.model.findOne(this.getFilter());
+        if (bedspace && bedspace.hospital) {
+            const operationId = Date.now().toString() + Math.random().toString();
+            hospitalUpdateQueue.set(operationId, [bedspace.hospital.toString()]);
+            this.options = this.options || {};
+            this.options._operationId = operationId;
+        }
+    }
+    catch (error) {
+        console.error('Error in pre findOneAndDelete:', error);
+    }
+});
+exports.BedspaceSchema.post('findOneAndDelete', async function () {
+    var _a;
+    try {
+        const operationId = (_a = this.options) === null || _a === void 0 ? void 0 : _a._operationId;
+        if (operationId && hospitalUpdateQueue.has(operationId)) {
+            const hospitalIds = hospitalUpdateQueue.get(operationId) || [];
+            hospitalUpdateQueue.delete(operationId);
+            const HospitalModel = (0, mongoose_2.model)('Hospital');
+            for (const hospitalId of hospitalIds) {
+                const hospital = await HospitalModel.findById(hospitalId);
+                if (hospital) {
+                    await hospital.updateBedspaceSummary();
+                }
+            }
+        }
+    }
+    catch (error) {
+        console.error('Error in post findOneAndDelete:', error);
+    }
+});
+exports.BedspaceSchema.pre('deleteMany', async function () {
+    try {
+        const bedspaces = await this.model.find(this.getFilter(), 'hospital');
+        if (bedspaces.length > 0) {
+            const hospitalIds = [...new Set(bedspaces.map(b => b.hospital ? b.hospital.toString() : null).filter(id => id !== null))];
+            if (hospitalIds.length > 0) {
+                const operationId = Date.now().toString() + Math.random().toString();
+                hospitalUpdateQueue.set(operationId, hospitalIds);
+                this.options = this.options || {};
+                this.options._operationId = operationId;
+            }
+        }
+    }
+    catch (error) {
+        console.error('Error in pre deleteMany:', error);
+    }
+});
+exports.BedspaceSchema.post('deleteMany', async function () {
+    var _a;
+    try {
+        const operationId = (_a = this.options) === null || _a === void 0 ? void 0 : _a._operationId;
+        if (operationId && hospitalUpdateQueue.has(operationId)) {
+            const hospitalIds = hospitalUpdateQueue.get(operationId) || [];
+            hospitalUpdateQueue.delete(operationId);
+            const HospitalModel = (0, mongoose_2.model)('Hospital');
+            for (const hospitalId of hospitalIds) {
+                const hospital = await HospitalModel.findById(hospitalId);
+                if (hospital) {
+                    await hospital.updateBedspaceSummary();
+                }
+            }
+        }
+    }
+    catch (error) {
+        console.error('Error in post deleteMany:', error);
+    }
+});
+exports.BedspaceSchema.statics.updateHospitalBedspaceSummary = async function (hospitalId) {
+    try {
+        const HospitalModel = (0, mongoose_2.model)('Hospital');
+        const hospital = await HospitalModel.findById(hospitalId);
+        if (hospital) {
+            await hospital.updateBedspaceSummary();
+            return true;
+        }
+        return false;
+    }
+    catch (error) {
+        console.error('Error in updateHospitalBedspaceSummary:', error);
+        return false;
+    }
+};
 //# sourceMappingURL=bedspace.schema.js.map

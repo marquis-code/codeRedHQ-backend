@@ -11,6 +11,11 @@ export declare class HospitalService {
     findByUsernameOrEmail(usernameOrEmail: string): Promise<Hospital>;
     update(id: string, updateHospitalDto: UpdateHospitalDto): Promise<Hospital>;
     remove(id: string): Promise<void>;
+    findNearby(latitude: number, longitude: number, maxDistance?: number): Promise<Hospital[]>;
+    findNearbyAggregation(latitude: number, longitude: number, maxDistance?: number): Promise<Hospital[]>;
+    verifyLocationIndex(hospitalId: string): Promise<any>;
+    findByExactCoordinates(latitude: number, longitude: number): Promise<Hospital[]>;
     private generateUniqueUsername;
     validateHospital(usernameOrEmail: string, password: string): Promise<Hospital | null>;
+    updateHospitalBedspaceSummary(hospitalId: string): Promise<Hospital>;
 }

@@ -8,6 +8,7 @@ export declare class HospitalController {
     create(createHospitalDto: CreateHospitalDto): Promise<Hospital>;
     findAll(query: any): Promise<Hospital[]>;
     findNearby(latitude: number, longitude: number, maxDistance?: number): Promise<Hospital[]>;
+    findByCoordinate(latitude: number, longitude: number): Promise<Hospital[]>;
     findOne(id: string): Promise<Hospital>;
     update(id: string, updateHospitalDto: UpdateHospitalDto): Promise<Hospital>;
     remove(id: string): Promise<void>;

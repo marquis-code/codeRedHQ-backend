@@ -30,6 +30,9 @@ let HospitalController = class HospitalController {
     async findNearby(latitude, longitude, maxDistance) {
         return this.hospitalService.findNearby(parseFloat(latitude), parseFloat(longitude), maxDistance ? parseFloat(maxDistance) : undefined);
     }
+    async findByCoordinate(latitude, longitude) {
+        return this.hospitalService.findByExactCoordinates(parseFloat(latitude), parseFloat(longitude));
+    }
     async findOne(id) {
         return this.hospitalService.findOne(id);
     }
@@ -63,6 +66,14 @@ __decorate([
     __metadata("design:paramtypes", [Number, Number, Number]),
     __metadata("design:returntype", Promise)
 ], HospitalController.prototype, "findNearby", null);
+__decorate([
+    (0, common_1.Get)('find-by-coordinate'),
+    __param(0, (0, common_1.Query)('latitude')),
+    __param(1, (0, common_1.Query)('longitude')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number]),
+    __metadata("design:returntype", Promise)
+], HospitalController.prototype, "findByCoordinate", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
