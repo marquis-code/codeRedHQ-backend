@@ -35,11 +35,11 @@ export class HospitalService {
   }
 
   async findAll(query: any): Promise<Hospital[]> {
-    return this.hospitalModel.find(query).exec();
+    return this.hospitalModel.find(query).populate('bedspaces').exec();
   }
 
   async findOne(id: string): Promise<Hospital> {
-    const hospital = await this.hospitalModel.findById(id).exec();
+    const hospital = await this.hospitalModel.findById(id).populate('bedspaces').exec();
     if (!hospital) {
       throw new NotFoundException(`Hospital with ID ${id} not found`);
     }
@@ -52,7 +52,7 @@ export class HospitalService {
         { username: usernameOrEmail },
         { email: usernameOrEmail }
       ]
-    }).exec();
+    }).populate('bedspaces').exec();
     
     if (!hospital) {
       throw new NotFoundException(`Hospital not found`);
@@ -109,7 +109,7 @@ export class HospitalService {
             $maxDistance: maxDistance,
           },
         },
-      }).exec();
+      }).populate('bedspaces').exec();
       
       console.log(`Found ${hospitals.length} hospitals within ${maxDistance}m`);
       return hospitals;
@@ -262,5 +262,16 @@ export class HospitalService {
       return null;
     }
   }
+
+  // In your hospital service
+async updateHospitalBedspaceSummary(hospitalId: string): Promise<Hospital> {
+  const hospital = await this.hospitalModel.findById(hospitalId);
+  if (!hospital) {
+    throw new NotFoundException(`Hospital with ID ${hospitalId} not found`);
+  }
+  
+  await hospital.updateBedspaceSummary();
+  return hospital;
+}
 
 }

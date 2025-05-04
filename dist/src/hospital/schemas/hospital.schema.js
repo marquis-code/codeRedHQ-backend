@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HospitalSchema = exports.Hospital = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
 const bcrypt = require("bcrypt");
 let Hospital = class Hospital {
 };
@@ -129,15 +130,57 @@ __decorate([
     __metadata("design:type", Object)
 ], Hospital.prototype, "location", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({
+        type: [{
+                _id: { type: mongoose_2.Schema.Types.ObjectId, ref: 'Bedspace' },
+                departmentName: String,
+                location: String,
+                totalBeds: Number,
+                availableBeds: Number,
+                occupiedBeds: Number,
+                status: {
+                    type: String,
+                    enum: ['Available', 'Limited', 'Unavailable'],
+                    default: 'Available'
+                },
+                lastUpdated: Date
+            }],
+        default: []
+    }),
+    __metadata("design:type", Array)
+], Hospital.prototype, "bedspacesSummary", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 0 }),
+    __metadata("design:type", Number)
+], Hospital.prototype, "totalBedCount", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 0 }),
+    __metadata("design:type", Number)
+], Hospital.prototype, "totalAvailableBeds", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: String,
+        enum: ['Available', 'Limited', 'Unavailable'],
+        default: 'Available'
+    }),
+    __metadata("design:type", String)
+], Hospital.prototype, "overallBedStatus", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ default: true }),
     __metadata("design:type", Boolean)
 ], Hospital.prototype, "isActive", void 0);
 Hospital = __decorate([
-    (0, mongoose_1.Schema)({ timestamps: true })
+    (0, mongoose_1.Schema)({ timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } })
 ], Hospital);
 exports.Hospital = Hospital;
 exports.HospitalSchema = mongoose_1.SchemaFactory.createForClass(Hospital);
 exports.HospitalSchema.index({ location: '2dsphere' });
+exports.HospitalSchema.virtual('bedspaces', {
+    ref: 'Bedspace',
+    localField: '_id',
+    foreignField: 'hospital',
+    justOne: false
+});
 exports.HospitalSchema.pre('save', async function (next) {
     const hospital = this;
     if (hospital.latitude && hospital.longitude) {
@@ -159,5 +202,41 @@ exports.HospitalSchema.pre('save', async function (next) {
 });
 exports.HospitalSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
+};
+exports.HospitalSchema.methods.updateBedspaceSummary = async function () {
+    const hospital = this;
+    try {
+        const BedspaceModel = (0, mongoose_2.model)('Bedspace');
+        const bedspaces = await BedspaceModel.find({ hospital: hospital._id });
+        hospital.bedspacesSummary = bedspaces.map(b => ({
+            _id: b._id,
+            departmentName: b.departmentName,
+            location: b.location,
+            totalBeds: b.totalBeds,
+            availableBeds: b.availableBeds,
+            occupiedBeds: b.occupiedBeds,
+            status: b.status,
+            lastUpdated: b.lastUpdated
+        }));
+        hospital.totalBedCount = bedspaces.reduce((sum, b) => sum + b.totalBeds, 0);
+        hospital.totalAvailableBeds = bedspaces.reduce((sum, b) => sum + b.availableBeds, 0);
+        if (hospital.totalBedCount === 0) {
+            hospital.overallBedStatus = 'Available';
+        }
+        else if (hospital.totalAvailableBeds === 0) {
+            hospital.overallBedStatus = 'Unavailable';
+        }
+        else if (hospital.totalAvailableBeds / hospital.totalBedCount < 0.2) {
+            hospital.overallBedStatus = 'Limited';
+        }
+        else {
+            hospital.overallBedStatus = 'Available';
+        }
+        await hospital.save();
+    }
+    catch (error) {
+        console.error('Error updating bedspace summary:', error);
+        throw error;
+    }
 };
 //# sourceMappingURL=hospital.schema.js.map

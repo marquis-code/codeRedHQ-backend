@@ -31,6 +31,17 @@ export class HospitalController {
     );
   }
 
+  @Get('find-by-coordinate')
+  async findByCoordinate(
+    @Query('latitude') latitude: number,
+    @Query('longitude') longitude: number
+  ): Promise<Hospital[]> {
+    return this.hospitalService.findByExactCoordinates(
+      parseFloat(latitude as any), 
+      parseFloat(longitude as any)
+    );
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<Hospital> {
     return this.hospitalService.findOne(id);

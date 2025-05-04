@@ -26,6 +26,7 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 export type HospitalDocument = Hospital & Document;
 export interface HospitalMethods {
     comparePassword(candidatePassword: string): Promise<boolean>;
+    updateBedspaceSummary(): Promise<void>;
 }
 export type HospitalModel = HospitalDocument & HospitalMethods;
 export declare class Hospital {
@@ -71,6 +72,19 @@ export declare class Hospital {
         type: string;
         coordinates: number[];
     };
+    bedspacesSummary: Array<{
+        _id: MongooseSchema.Types.ObjectId;
+        departmentName: string;
+        location: string;
+        totalBeds: number;
+        availableBeds: number;
+        occupiedBeds: number;
+        status: string;
+        lastUpdated: Date;
+    }>;
+    totalBedCount: number;
+    totalAvailableBeds: number;
+    overallBedStatus: string;
     isActive: boolean;
 }
 export declare const HospitalSchema: MongooseSchema<Document<Hospital, any, any>, import("mongoose").Model<Document<Hospital, any, any>, any, any, any, Document<unknown, any, Document<Hospital, any, any>> & Document<Hospital, any, any> & Required<{
