@@ -67,17 +67,6 @@ let HospitalService = class HospitalService {
             throw new common_1.NotFoundException(`Hospital with ID ${id} not found`);
         }
     }
-    async findNearby(latitude, longitude, maxDistance = 10000) {
-        return this.hospitalModel.find({
-            $nearSphere: {
-                $geometry: {
-                    type: 'Point',
-                    coordinates: [longitude, latitude],
-                },
-                $maxDistance: maxDistance,
-            },
-        }).exec();
-    }
     async generateUniqueUsername(hospitalName, address) {
         const addressParts = address.split(',');
         const locationPart = addressParts.length > 1
