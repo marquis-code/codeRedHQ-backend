@@ -911,6 +911,119 @@ export class BedspaceGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     return R * c; // Distance in meters
   }
 
+  // private async findHospitalByIdOrPlaceId(id: string): Promise<HospitalDocument | null> {
+  //   try {
+  //     // Validate id
+  //     if (!id) {
+  //       this.logger.error('Invalid hospital ID: null or undefined');
+  //       return null;
+  //     }
+      
+  //     // Check if the id is a valid ObjectId
+  //     const isValidObjectId = id && typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+      
+  //     // Create a query that will work efficiently
+  //     let query;
+  //     if (isValidObjectId) {
+  //       // First try direct _id lookup which is faster (indexed)
+  //       const hospitalById = await this.hospitalModel.findById(id)
+  //         .select('_id hospitalName latitude longitude location placeId') // Select only needed fields
+  //         .lean() // Use lean for better performance
+  //         .maxTimeMS(3000) // 3-second timeout
+  //         .exec();
+        
+  //       if (hospitalById) {
+  //         return hospitalById;
+  //       }
+        
+  //       // If not found by _id, try placeId
+  //       query = { placeId: id };
+  //     } else {
+  //       // Not a valid ObjectId, so just search by placeId
+  //       query = { placeId: id };
+  //     }
+      
+  //     // Add a timeout and use lean for better performance
+  //     return await this.hospitalModel.findOne(query)
+  //       .select('_id hospitalName latitude longitude location placeId') // Select only needed fields
+  //       .lean() // Use lean for better performance
+  //       .maxTimeMS(3000) // 3-second timeout
+  //       .exec();
+  //   } catch (error) {
+  //     this.logger.error(`Error finding hospital: ${error}`);
+  //     return null;
+  //   }
+  // }
+
+  // private async findHospitalByIdOrPlaceId(id: string): Promise<HospitalDocument | null> {
+  //   try {
+  //     // Validate id
+  //     if (!id) {
+  //       this.logger.error('Invalid hospital ID: null or undefined');
+  //       return null;
+  //     }
+      
+  //     // Check if the id is a valid ObjectId
+  //     const isValidObjectId = id && typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+      
+  //     // Create a query that will work efficiently
+  //     let query;
+  //     if (isValidObjectId) {
+  //       // First try direct _id lookup which is faster (indexed)
+  //       try {
+  //         const hospitalById = await this.hospitalModel.findById(id)
+  //           .select('_id hospitalName latitude longitude location placeId')
+  //           .lean()
+  //           .maxTimeMS(3000)
+  //           .exec();
+          
+  //         if (hospitalById) {
+  //           return hospitalById;
+  //         }
+  //       } catch (err) {
+  //         this.logger.error(`Error finding hospital by ID: ${err.message}`);
+  //       }
+  //     }
+      
+  //     // Try by placeId (either as fallback or primary method)
+  //     try {
+  //       const hospitalByPlaceId = await this.hospitalModel.findOne({ placeId: id })
+  //         .select('_id hospitalName latitude longitude location placeId')
+  //         .lean()
+  //         .maxTimeMS(3000)
+  //         .exec();
+        
+  //       if (hospitalByPlaceId) {
+  //         return hospitalByPlaceId;
+  //       }
+  //     } catch (err) {
+  //       this.logger.error(`Error finding hospital by placeId: ${err.message}`);
+  //     }
+      
+  //     // If we get here, try one more approach - find by string ID in the hospital field
+  //     try {
+  //       const hospitalByStringId = await this.hospitalModel.findOne({ 
+  //         $or: [
+  //           { _id: id },
+  //           { 'placeId': id }
+  //         ]
+  //       })
+  //         .select('_id hospitalName latitude longitude location placeId')
+  //         .lean()
+  //         .maxTimeMS(3000)
+  //         .exec();
+        
+  //       return hospitalByStringId;
+  //     } catch (err) {
+  //       this.logger.error(`Error finding hospital by string ID: ${err.message}`);
+  //       return null;
+  //     }
+  //   } catch (error) {
+  //     this.logger.error(`Error finding hospital: ${error}`);
+  //     return null;
+  //   }
+  // }
+
   private async findHospitalByIdOrPlaceId(id: string): Promise<HospitalDocument | null> {
     try {
       // Validate id

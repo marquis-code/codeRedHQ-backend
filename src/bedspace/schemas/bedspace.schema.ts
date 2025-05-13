@@ -749,8 +749,212 @@
 // };
 
 
+// import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+// import { Document, Schema as MongooseSchema, Types, Connection } from 'mongoose';
+// import { InjectConnection } from '@nestjs/mongoose';
+
+// // Define the interface for the document, which extends Document and Bedspace
+// export interface BedspaceDocument extends Document, Bedspace {}
+
+// @Schema({ timestamps: true })
+// export class Bedspace {
+//   @Prop({ 
+//     type: MongooseSchema.Types.Mixed, // Changed from ObjectId to Mixed to accept both string and ObjectId
+//     ref: 'Hospital', 
+//     required: true,
+//     // Add a validator to ensure it's either a string or ObjectId
+//     validate: {
+//       validator: function(v: any) {
+//         // Accept either string (for Google Place IDs) or ObjectId
+//         return typeof v === 'string' || v instanceof Types.ObjectId;
+//       },
+//       message: props => `${props.value} is not a valid hospital identifier!`
+//     }
+//   })
+//   hospital: Types.ObjectId | string;
+
+//   @Prop({ required: true })
+//   departmentName: string;
+
+//   @Prop({ required: true })
+//   location: string;
+
+//   @Prop({ required: true })
+//   totalBeds: number;
+
+//   @Prop({ required: true, default: 0 })
+//   availableBeds: number;
+
+//   @Prop({ required: true, default: 0 })
+//   occupiedBeds: number;
+
+//   @Prop()
+//   lastUpdated: Date;
+
+//   @Prop({ enum: ['Available', 'Limited', 'Unavailable'], default: 'Available' })
+//   status: string;
+
+//   @Prop({ type: [{ date: Date, available: Number, occupied: Number }], default: [] })
+//   history: Array<{
+//     date: Date;
+//     available: number;
+//     occupied: number;
+//   }>;
+// }
+
+// export const BedspaceSchema = SchemaFactory.createForClass(Bedspace);
+
+// // Calculate status based on available beds
+// BedspaceSchema.pre('save', async function (next) {
+//   const bedspace = this as BedspaceDocument;
+  
+//   // Update lastUpdated timestamp
+//   bedspace.lastUpdated = new Date();
+  
+//   // Calculate occupancy percentage
+//   const occupancyPercentage = (bedspace.occupiedBeds / bedspace.totalBeds) * 100;
+  
+//   // Set status based on occupancy
+//   if (bedspace.availableBeds === 0) {
+//     bedspace.status = 'Unavailable';
+//   } else if (occupancyPercentage >= 80) {
+//     bedspace.status = 'Limited';
+//   } else {
+//     bedspace.status = 'Available';
+//   }
+  
+//   // Add to history
+//   bedspace.history.push({
+//     date: new Date(),
+//     available: bedspace.availableBeds,
+//     occupied: bedspace.occupiedBeds
+//   });
+  
+//   // Limit history to last 100 entries
+//   if (bedspace.history.length > 100) {
+//     bedspace.history = bedspace.history.slice(-100);
+//   }
+  
+//   next();
+// });
+
+// // Create a function to safely get the Hospital model
+// const getHospitalModel = function(this: any) {
+//   try {
+//     // Try to get the model from the connection
+//     return this.model('Hospital');
+//   } catch (error) {
+//     // If the model isn't registered yet, log the error but don't throw
+//     console.error('Hospital model not available:', error.message);
+//     return null;
+//   }
+// };
+
+// // Modified to handle both string and ObjectId hospital references
+// BedspaceSchema.post('save', async function() {
+//   const bedspace = this as BedspaceDocument;
+  
+//   try {
+//     // Get the Hospital model safely
+//     const HospitalModel = getHospitalModel.call(this);
+    
+//     if (!HospitalModel) {
+//       console.log('Hospital model not available, skipping update');
+//       return;
+//     }
+    
+//     // Safely handle the hospital ID
+//     let hospitalId = bedspace.hospital;
+    
+//     // If it's an ObjectId, convert to string
+//     if (typeof hospitalId === 'object' && hospitalId !== null) {
+//       hospitalId = hospitalId.toString();
+//     }
+    
+//     // Validate the ID format
+//     if (typeof hospitalId !== 'string') {
+//       console.error('Invalid hospital ID format:', hospitalId);
+//       return;
+//     }
+    
+//     // Find the associated hospital - handle both string IDs and ObjectIds
+//     let hospital;
+    
+//     // Try to find by ObjectId if it looks like one
+//     if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+//       hospital = await HospitalModel.findById(hospitalId);
+//     }
+    
+//     // If not found, try by placeId
+//     if (!hospital) {
+//       hospital = await HospitalModel.findOne({ placeId: hospitalId });
+//     }
+    
+//     if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+//       // Update the hospital's bedspace summary
+//       await hospital.updateBedspaceSummary();
+//     } else {
+//       console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
+//     }
+//   } catch (error) {
+//     console.error('Error updating hospital after bedspace save:', error);
+//     // Don't throw the error to prevent the bedspace save from failing
+//   }
+// });
+
+// // Modified to handle both string and ObjectId hospital references
+// BedspaceSchema.post('findOneAndUpdate', async function(doc) {
+//   if (doc) {
+//     try {
+//       // Get the Hospital model safely
+//       const HospitalModel = getHospitalModel.call(this);
+      
+//       if (!HospitalModel) {
+//         console.log('Hospital model not available, skipping update');
+//         return;
+//       }
+      
+//       // Safely handle the hospital ID
+//       let hospitalId = doc.hospital;
+      
+//       // If it's an ObjectId, convert to string
+//       if (typeof hospitalId === 'object' && hospitalId !== null) {
+//         hospitalId = hospitalId.toString();
+//       }
+      
+//       // Validate the ID format
+//       if (typeof hospitalId !== 'string') {
+//         console.error('Invalid hospital ID format:', hospitalId);
+//         return;
+//       }
+      
+//       // Find the associated hospital - handle both string IDs and ObjectIds
+//       let hospital;
+      
+//       // Try to find by ObjectId if it looks like one
+//       if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+//         hospital = await HospitalModel.findById(hospitalId);
+//       }
+      
+//       // If not found, try by placeId
+//       if (!hospital) {
+//         hospital = await HospitalModel.findOne({ placeId: hospitalId });
+//       }
+      
+//       if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+//         // Update the hospital's bedspace summary
+//         await hospital.updateBedspaceSummary();
+//       } else {
+//         console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
+//       }
+//     } catch (error) {
+//       console.error('Error updating hospital after bedspace update:', error);
+//     }
+//   }
+// });
+
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types, model } from 'mongoose';
 import mongoose from 'mongoose';
 
 // Define the interface for the document, which extends Document and Bedspace
@@ -759,13 +963,11 @@ export interface BedspaceDocument extends Document, Bedspace {}
 @Schema({ timestamps: true })
 export class Bedspace {
   @Prop({ 
-    type: MongooseSchema.Types.Mixed, // Changed from ObjectId to Mixed to accept both string and ObjectId
+    type: MongooseSchema.Types.Mixed,
     ref: 'Hospital', 
     required: true,
-    // Add a validator to ensure it's either a string or ObjectId
     validate: {
       validator: function(v: any) {
-        // Accept either string (for Google Place IDs) or ObjectId
         return typeof v === 'string' || v instanceof Types.ObjectId;
       },
       message: props => `${props.value} is not a valid hospital identifier!`
@@ -808,49 +1010,21 @@ export const BedspaceSchema = SchemaFactory.createForClass(Bedspace);
 // Helper function to safely get the Hospital model
 const getHospitalModel = function() {
   try {
-    // Try to get the model from mongoose
-    return mongoose.model('Hospital');
+    // Try to get the model if it's already registered
+    if (mongoose.modelNames().includes('Hospital')) {
+      return mongoose.model('Hospital');
+    }
+    
+    // If not registered yet, try to get it from the connection
+    const connection = mongoose.connection;
+    if (connection && connection.models && connection.models.Hospital) {
+      return connection.models.Hospital;
+    }
+    
+    console.error('Hospital model not available: Schema hasn\'t been registered for model "Hospital".');
+    return null;
   } catch (error) {
     console.error('Hospital model not available:', error.message);
-    return null;
-  }
-};
-
-// Helper function to safely find a hospital by ID
-const findHospitalById = async function(hospitalId: string | Types.ObjectId) {
-  try {
-    const HospitalModel = getHospitalModel();
-    if (!HospitalModel) {
-      console.log('Hospital model not available, skipping update');
-      return null;
-    }
-
-    // Convert ObjectId to string if needed
-    const hospitalIdStr = typeof hospitalId === 'object' && hospitalId !== null 
-      ? hospitalId.toString() 
-      : hospitalId;
-
-    // Skip if invalid ID
-    if (typeof hospitalIdStr !== 'string') {
-      console.error('Invalid hospital ID format:', hospitalId);
-      return null;
-    }
-
-    let hospital;
-    
-    // Try to find by ObjectId if it looks like one
-    if (/^[0-9a-fA-F]{24}$/.test(hospitalIdStr)) {
-      hospital = await HospitalModel.findById(hospitalIdStr);
-    }
-    
-    // If not found, try by placeId
-    if (!hospital) {
-      hospital = await HospitalModel.findOne({ placeId: hospitalIdStr });
-    }
-
-    return hospital;
-  } catch (error) {
-    console.error('Error finding hospital:', error);
     return null;
   }
 };
@@ -889,19 +1063,68 @@ BedspaceSchema.pre('save', async function (next) {
   next();
 });
 
+// Helper function to safely find a hospital by ID
+const findHospitalById = async function(hospitalId: string | Types.ObjectId) {
+  try {
+    const HospitalModel = getHospitalModel();
+    if (!HospitalModel) {
+      console.log('Hospital model not available, skipping update');
+      return null;
+    }
+
+    // Convert ObjectId to string if needed
+    const hospitalIdStr = typeof hospitalId === 'object' && hospitalId !== null 
+      ? hospitalId.toString() 
+      : hospitalId;
+
+    // Skip if invalid ID
+    if (typeof hospitalIdStr !== 'string') {
+      console.error('Invalid hospital ID format:', hospitalId);
+      return null;
+    }
+
+    let hospital;
+    
+    // Try to find by ObjectId if it looks like one
+    if (/^[0-9a-fA-F]{24}$/.test(hospitalIdStr)) {
+      hospital = await HospitalModel.findById(hospitalIdStr)
+        .maxTimeMS(5000)
+        .exec();
+    }
+    
+    // If not found, try by placeId
+    if (!hospital) {
+      hospital = await HospitalModel.findOne({ placeId: hospitalIdStr })
+        .maxTimeMS(5000)
+        .exec();
+    }
+
+    return hospital;
+  } catch (error) {
+    console.error('Error finding hospital:', error);
+    return null;
+  }
+};
+
 // Modified to handle both string and ObjectId hospital references
 BedspaceSchema.post('save', async function() {
   const bedspace = this as BedspaceDocument;
   
   try {
-    const hospital = await findHospitalById(bedspace.hospital);
-    
-    if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
-      // Update the hospital's bedspace summary
-      await hospital.updateBedspaceSummary();
-    } else if (hospital) {
-      console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
-    }
+    // Delay the hospital update to ensure the Hospital model is registered
+    setTimeout(async () => {
+      try {
+        const hospital = await findHospitalById(bedspace.hospital);
+        
+        if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+          await hospital.updateBedspaceSummary();
+        } else if (hospital) {
+          console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+        }
+      } catch (error) {
+        console.error('Error updating hospital after bedspace save (delayed):', error);
+      }
+    }, 1000); // 1-second delay
   } catch (error) {
     console.error('Error updating hospital after bedspace save:', error);
   }
@@ -911,14 +1134,20 @@ BedspaceSchema.post('save', async function() {
 BedspaceSchema.post('findOneAndUpdate', async function(doc) {
   if (doc) {
     try {
-      const hospital = await findHospitalById(doc.hospital);
-      
-      if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
-        // Update the hospital's bedspace summary
-        await hospital.updateBedspaceSummary();
-      } else if (hospital) {
-        console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
-      }
+      // Delay the hospital update to ensure the Hospital model is registered
+      setTimeout(async () => {
+        try {
+          const hospital = await findHospitalById(doc.hospital);
+          
+          if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+            await hospital.updateBedspaceSummary();
+          } else if (hospital) {
+            console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+          }
+        } catch (error) {
+          console.error('Error updating hospital after bedspace update (delayed):', error);
+        }
+      }, 1000); // 1-second delay
     } catch (error) {
       console.error('Error updating hospital after bedspace update:', error);
     }
@@ -930,13 +1159,46 @@ BedspaceSchema.pre('deleteOne', { document: true, query: false }, async function
   const bedspace = this as BedspaceDocument;
   if (bedspace.hospital) {
     try {
-      const hospital = await findHospitalById(bedspace.hospital);
+      // Get the Hospital model safely
+      const HospitalModel = getHospitalModel.call(this);
+      
+      if (!HospitalModel) {
+        console.log('Hospital model not available, skipping update');
+        return;
+      }
+      
+      // Safely handle the hospital ID
+      let hospitalId = bedspace.hospital;
+      
+      // If it's an ObjectId, convert to string
+      if (typeof hospitalId === 'object' && hospitalId !== null) {
+        hospitalId = hospitalId.toString();
+      }
+      
+      // Validate the ID format
+      if (typeof hospitalId !== 'string') {
+        console.error('Invalid hospital ID format:', hospitalId);
+        return;
+      }
+      
+      // Find the associated hospital - handle both string IDs and ObjectIds
+      let hospital;
+      
+      // Try to find by ObjectId if it looks like one
+      if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+        hospital = await HospitalModel.findById(hospitalId);
+      }
+      
+      // If not found, try by placeId
+      if (!hospital) {
+        hospital = await HospitalModel.findOne({ placeId: hospitalId });
+      }
       
       if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
         // Update the hospital's bedspace summary
         await hospital.updateBedspaceSummary();
-      } else if (hospital) {
-        console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+      } else {
+        console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
       }
     } catch (error) {
       console.error('Error updating hospital after bedspace deletion:', error);
@@ -951,13 +1213,21 @@ BedspaceSchema.pre('findOneAndDelete', async function() {
     const bedspace = await this.model.findOne(this.getFilter());
     
     if (bedspace && bedspace.hospital) {
-      // Store the hospital ID in the query options
+      // Generate a unique key for this operation
+      const operationId = Date.now().toString() + Math.random().toString();
+      
+      // Store the hospital ID in our queue (convert to string if it's an ObjectId)
+      const hospitalId = typeof bedspace.hospital === 'object' && bedspace.hospital !== null 
+        ? bedspace.hospital.toString() 
+        : bedspace.hospital;
+      
+      // Store the operation ID in the query options
       // @ts-ignore - This is a valid way to pass data between pre and post hooks
       this.options = this.options || {};
       // @ts-ignore
-      this.options._hospitalId = typeof bedspace.hospital === 'object' && bedspace.hospital !== null 
-        ? bedspace.hospital.toString() 
-        : bedspace.hospital;
+      this.options._operationId = operationId;
+      // @ts-ignore
+      this.options._hospitalId = hospitalId;
     }
   } catch (error) {
     console.error('Error in pre findOneAndDelete:', error);
@@ -967,16 +1237,35 @@ BedspaceSchema.pre('findOneAndDelete', async function() {
 // Modified to handle string IDs
 BedspaceSchema.post('findOneAndDelete', async function() {
   try {
-    // @ts-ignore - Retrieve the hospital ID
+    // @ts-ignore - Retrieve the operation ID and hospital ID
     const hospitalId = this.options?._hospitalId;
     
     if (hospitalId) {
-      const hospital = await findHospitalById(hospitalId);
+      // Get the Hospital model safely
+      const HospitalModel = getHospitalModel.call(this);
+      
+      if (!HospitalModel) {
+        console.log('Hospital model not available, skipping update');
+        return;
+      }
+      
+      // Find the associated hospital - handle both string IDs and ObjectIds
+      let hospital;
+      
+      // Try to find by ObjectId if it looks like one
+      if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+        hospital = await HospitalModel.findById(hospitalId);
+      }
+      
+      // If not found, try by placeId
+      if (!hospital) {
+        hospital = await HospitalModel.findOne({ placeId: hospitalId });
+      }
       
       if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
         await hospital.updateBedspaceSummary();
-      } else if (hospital) {
-        console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+      } else {
+        console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
       }
     }
   } catch (error) {
@@ -1019,13 +1308,33 @@ BedspaceSchema.post('deleteMany', async function() {
     const hospitalIds = this.options?._hospitalIds || [];
     
     if (hospitalIds.length > 0) {
+      // Get the Hospital model safely
+      const HospitalModel = getHospitalModel.call(this);
+      
+      if (!HospitalModel) {
+        console.log('Hospital model not available, skipping update');
+        return;
+      }
+      
+      // Update each hospital
       for (const hospitalId of hospitalIds) {
-        const hospital = await findHospitalById(hospitalId);
+        // Find the associated hospital - handle both string IDs and ObjectIds
+        let hospital;
+        
+        // Try to find by ObjectId if it looks like one
+        if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+          hospital = await HospitalModel.findById(hospitalId);
+        }
+        
+        // If not found, try by placeId
+        if (!hospital) {
+          hospital = await HospitalModel.findOne({ placeId: hospitalId });
+        }
         
         if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
           await hospital.updateBedspaceSummary();
-        } else if (hospital) {
-          console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+        } else {
+          console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
         }
       }
     }
@@ -1037,7 +1346,26 @@ BedspaceSchema.post('deleteMany', async function() {
 // Modified static method to handle string IDs
 BedspaceSchema.statics.updateHospitalBedspaceSummary = async function(hospitalId: string) {
   try {
-    const hospital = await findHospitalById(hospitalId);
+    // Get the Hospital model safely
+    const HospitalModel = getHospitalModel.call(this);
+    
+    if (!HospitalModel) {
+      console.log('Hospital model not available, skipping update');
+      return false;
+    }
+    
+    // Find the associated hospital - handle both string IDs and ObjectIds
+    let hospital;
+    
+    // Try to find by ObjectId if it looks like one
+    if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+      hospital = await HospitalModel.findById(hospitalId);
+    }
+    
+    // If not found, try by placeId
+    if (!hospital) {
+      hospital = await HospitalModel.findOne({ placeId: hospitalId });
+    }
     
     if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
       await hospital.updateBedspaceSummary();

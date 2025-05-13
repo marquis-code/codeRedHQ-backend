@@ -68,38 +68,18 @@ exports.Bedspace = Bedspace;
 exports.BedspaceSchema = mongoose_1.SchemaFactory.createForClass(Bedspace);
 const getHospitalModel = function () {
     try {
-        return mongoose_3.default.model('Hospital');
+        if (mongoose_3.default.modelNames().includes('Hospital')) {
+            return mongoose_3.default.model('Hospital');
+        }
+        const connection = mongoose_3.default.connection;
+        if (connection && connection.models && connection.models.Hospital) {
+            return connection.models.Hospital;
+        }
+        console.error('Hospital model not available: Schema hasn\'t been registered for model "Hospital".');
+        return null;
     }
     catch (error) {
         console.error('Hospital model not available:', error.message);
-        return null;
-    }
-};
-const findHospitalById = async function (hospitalId) {
-    try {
-        const HospitalModel = getHospitalModel();
-        if (!HospitalModel) {
-            console.log('Hospital model not available, skipping update');
-            return null;
-        }
-        const hospitalIdStr = typeof hospitalId === 'object' && hospitalId !== null
-            ? hospitalId.toString()
-            : hospitalId;
-        if (typeof hospitalIdStr !== 'string') {
-            console.error('Invalid hospital ID format:', hospitalId);
-            return null;
-        }
-        let hospital;
-        if (/^[0-9a-fA-F]{24}$/.test(hospitalIdStr)) {
-            hospital = await HospitalModel.findById(hospitalIdStr);
-        }
-        if (!hospital) {
-            hospital = await HospitalModel.findOne({ placeId: hospitalIdStr });
-        }
-        return hospital;
-    }
-    catch (error) {
-        console.error('Error finding hospital:', error);
         return null;
     }
 };
@@ -126,16 +106,55 @@ exports.BedspaceSchema.pre('save', async function (next) {
     }
     next();
 });
+const findHospitalById = async function (hospitalId) {
+    try {
+        const HospitalModel = getHospitalModel();
+        if (!HospitalModel) {
+            console.log('Hospital model not available, skipping update');
+            return null;
+        }
+        const hospitalIdStr = typeof hospitalId === 'object' && hospitalId !== null
+            ? hospitalId.toString()
+            : hospitalId;
+        if (typeof hospitalIdStr !== 'string') {
+            console.error('Invalid hospital ID format:', hospitalId);
+            return null;
+        }
+        let hospital;
+        if (/^[0-9a-fA-F]{24}$/.test(hospitalIdStr)) {
+            hospital = await HospitalModel.findById(hospitalIdStr)
+                .maxTimeMS(5000)
+                .exec();
+        }
+        if (!hospital) {
+            hospital = await HospitalModel.findOne({ placeId: hospitalIdStr })
+                .maxTimeMS(5000)
+                .exec();
+        }
+        return hospital;
+    }
+    catch (error) {
+        console.error('Error finding hospital:', error);
+        return null;
+    }
+};
 exports.BedspaceSchema.post('save', async function () {
     const bedspace = this;
     try {
-        const hospital = await findHospitalById(bedspace.hospital);
-        if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
-            await hospital.updateBedspaceSummary();
-        }
-        else if (hospital) {
-            console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
-        }
+        setTimeout(async () => {
+            try {
+                const hospital = await findHospitalById(bedspace.hospital);
+                if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+                    await hospital.updateBedspaceSummary();
+                }
+                else if (hospital) {
+                    console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+                }
+            }
+            catch (error) {
+                console.error('Error updating hospital after bedspace save (delayed):', error);
+            }
+        }, 1000);
     }
     catch (error) {
         console.error('Error updating hospital after bedspace save:', error);
@@ -144,13 +163,20 @@ exports.BedspaceSchema.post('save', async function () {
 exports.BedspaceSchema.post('findOneAndUpdate', async function (doc) {
     if (doc) {
         try {
-            const hospital = await findHospitalById(doc.hospital);
-            if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
-                await hospital.updateBedspaceSummary();
-            }
-            else if (hospital) {
-                console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
-            }
+            setTimeout(async () => {
+                try {
+                    const hospital = await findHospitalById(doc.hospital);
+                    if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
+                        await hospital.updateBedspaceSummary();
+                    }
+                    else if (hospital) {
+                        console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+                    }
+                }
+                catch (error) {
+                    console.error('Error updating hospital after bedspace update (delayed):', error);
+                }
+            }, 1000);
         }
         catch (error) {
             console.error('Error updating hospital after bedspace update:', error);
@@ -161,12 +187,31 @@ exports.BedspaceSchema.pre('deleteOne', { document: true, query: false }, async 
     const bedspace = this;
     if (bedspace.hospital) {
         try {
-            const hospital = await findHospitalById(bedspace.hospital);
+            const HospitalModel = getHospitalModel.call(this);
+            if (!HospitalModel) {
+                console.log('Hospital model not available, skipping update');
+                return;
+            }
+            let hospitalId = bedspace.hospital;
+            if (typeof hospitalId === 'object' && hospitalId !== null) {
+                hospitalId = hospitalId.toString();
+            }
+            if (typeof hospitalId !== 'string') {
+                console.error('Invalid hospital ID format:', hospitalId);
+                return;
+            }
+            let hospital;
+            if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+                hospital = await HospitalModel.findById(hospitalId);
+            }
+            if (!hospital) {
+                hospital = await HospitalModel.findOne({ placeId: hospitalId });
+            }
             if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
                 await hospital.updateBedspaceSummary();
             }
-            else if (hospital) {
-                console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+            else {
+                console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
             }
         }
         catch (error) {
@@ -178,10 +223,13 @@ exports.BedspaceSchema.pre('findOneAndDelete', async function () {
     try {
         const bedspace = await this.model.findOne(this.getFilter());
         if (bedspace && bedspace.hospital) {
-            this.options = this.options || {};
-            this.options._hospitalId = typeof bedspace.hospital === 'object' && bedspace.hospital !== null
+            const operationId = Date.now().toString() + Math.random().toString();
+            const hospitalId = typeof bedspace.hospital === 'object' && bedspace.hospital !== null
                 ? bedspace.hospital.toString()
                 : bedspace.hospital;
+            this.options = this.options || {};
+            this.options._operationId = operationId;
+            this.options._hospitalId = hospitalId;
         }
     }
     catch (error) {
@@ -193,12 +241,23 @@ exports.BedspaceSchema.post('findOneAndDelete', async function () {
     try {
         const hospitalId = (_a = this.options) === null || _a === void 0 ? void 0 : _a._hospitalId;
         if (hospitalId) {
-            const hospital = await findHospitalById(hospitalId);
+            const HospitalModel = getHospitalModel.call(this);
+            if (!HospitalModel) {
+                console.log('Hospital model not available, skipping update');
+                return;
+            }
+            let hospital;
+            if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+                hospital = await HospitalModel.findById(hospitalId);
+            }
+            if (!hospital) {
+                hospital = await HospitalModel.findOne({ placeId: hospitalId });
+            }
             if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
                 await hospital.updateBedspaceSummary();
             }
-            else if (hospital) {
-                console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+            else {
+                console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
             }
         }
     }
@@ -232,13 +291,24 @@ exports.BedspaceSchema.post('deleteMany', async function () {
     try {
         const hospitalIds = ((_a = this.options) === null || _a === void 0 ? void 0 : _a._hospitalIds) || [];
         if (hospitalIds.length > 0) {
+            const HospitalModel = getHospitalModel.call(this);
+            if (!HospitalModel) {
+                console.log('Hospital model not available, skipping update');
+                return;
+            }
             for (const hospitalId of hospitalIds) {
-                const hospital = await findHospitalById(hospitalId);
+                let hospital;
+                if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+                    hospital = await HospitalModel.findById(hospitalId);
+                }
+                if (!hospital) {
+                    hospital = await HospitalModel.findOne({ placeId: hospitalId });
+                }
                 if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
                     await hospital.updateBedspaceSummary();
                 }
-                else if (hospital) {
-                    console.log(`updateBedspaceSummary method not available for hospital: ${hospital._id}`);
+                else {
+                    console.log(`Hospital not found or updateBedspaceSummary not available for ID: ${hospitalId}`);
                 }
             }
         }
@@ -249,7 +319,18 @@ exports.BedspaceSchema.post('deleteMany', async function () {
 });
 exports.BedspaceSchema.statics.updateHospitalBedspaceSummary = async function (hospitalId) {
     try {
-        const hospital = await findHospitalById(hospitalId);
+        const HospitalModel = getHospitalModel.call(this);
+        if (!HospitalModel) {
+            console.log('Hospital model not available, skipping update');
+            return false;
+        }
+        let hospital;
+        if (/^[0-9a-fA-F]{24}$/.test(hospitalId)) {
+            hospital = await HospitalModel.findById(hospitalId);
+        }
+        if (!hospital) {
+            hospital = await HospitalModel.findOne({ placeId: hospitalId });
+        }
         if (hospital && typeof hospital.updateBedspaceSummary === 'function') {
             await hospital.updateBedspaceSummary();
             return true;

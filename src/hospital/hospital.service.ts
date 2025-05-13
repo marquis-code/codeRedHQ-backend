@@ -255,6 +255,38 @@ async updateHospitalBedspaceSummary(hospitalId: string): Promise<Hospital> {
   return hospital;
 }
 
+// async findOne(id: string): Promise<Hospital> {
+//   try {
+//     // First try to find by _id if it's a valid ObjectId
+//     if (/^[0-9a-fA-F]{24}$/.test(id)) {
+//       const hospital = await this.hospitalModel.findById(id)
+//         .maxTimeMS(5000) // Add a 5-second timeout
+//         .exec();
+      
+//       if (hospital) {
+//         return hospital;
+//       }
+//     }
+    
+//     // If not found by _id or not a valid ObjectId, try by placeId
+//     const hospitalByPlaceId = await this.hospitalModel.findOne({ placeId: id })
+//       .maxTimeMS(5000) // Add a 5-second timeout
+//       .exec();
+    
+//     if (hospitalByPlaceId) {
+//       return hospitalByPlaceId;
+//     }
+    
+//     throw new NotFoundException(`Hospital with ID ${id} not found`);
+//   } catch (error) {
+//     if (error instanceof NotFoundException) {
+//       throw error;
+//     }
+//     console.error(`Error finding hospital with ID ${id}:`, error);
+//     throw new NotFoundException(`Error finding hospital with ID ${id}`);
+//   }
+// }
+
 async findOne(id: string): Promise<Hospital> {
   try {
     // First try to find by _id if it's a valid ObjectId
