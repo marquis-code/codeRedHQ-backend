@@ -33,6 +33,7 @@ export declare class Hospital {
     _id: MongooseSchema.Types.ObjectId;
     username: string;
     email: string;
+    placeId: string;
     password: string;
     hospitalName: string;
     contactInformation: string;

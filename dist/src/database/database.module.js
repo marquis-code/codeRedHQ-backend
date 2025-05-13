@@ -14,6 +14,7 @@ exports.DatabaseModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const config_1 = require("@nestjs/config");
+const mongoose_2 = require("mongoose");
 let DatabaseModule = DatabaseModule_1 = class DatabaseModule {
     constructor(configService) {
         this.configService = configService;
@@ -26,6 +27,16 @@ let DatabaseModule = DatabaseModule_1 = class DatabaseModule {
                 throw new Error('MONGO_URL environment variable is not defined');
             }
             this.logger.log(`Database connection initialized with URI: ${mongoUri}`);
+            mongoose_2.default.set('debug', process.env.NODE_ENV !== 'production');
+            mongoose_2.default.connection.on('connected', () => {
+                this.logger.log('MongoDB connected successfully');
+            });
+            mongoose_2.default.connection.on('error', (err) => {
+                this.logger.error(`MongoDB connection error: ${err}`);
+            });
+            mongoose_2.default.connection.on('disconnected', () => {
+                this.logger.warn('MongoDB disconnected');
+            });
             this.logger.log('Database initialization complete');
         }
         catch (error) {
@@ -34,6 +45,7 @@ let DatabaseModule = DatabaseModule_1 = class DatabaseModule {
     }
 };
 DatabaseModule = DatabaseModule_1 = __decorate([
+    (0, common_1.Global)(),
     (0, common_1.Module)({
         imports: [
             mongoose_1.MongooseModule.forRootAsync({
@@ -48,10 +60,20 @@ DatabaseModule = DatabaseModule_1 = __decorate([
                         uri: mongoUri,
                         useNewUrlParser: true,
                         useUnifiedTopology: true,
+                        connectTimeoutMS: 30000,
+                        socketTimeoutMS: 60000,
+                        serverSelectionTimeoutMS: 30000,
+                        maxPoolSize: 50,
+                        minPoolSize: 10,
+                        maxIdleTimeMS: 30000,
+                        heartbeatFrequencyMS: 10000,
+                        retryWrites: true,
+                        retryReads: true,
                     };
                 },
             }),
         ],
+        exports: [mongoose_1.MongooseModule],
     }),
     __metadata("design:paramtypes", [config_1.ConfigService])
 ], DatabaseModule);

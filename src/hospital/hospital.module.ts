@@ -6,19 +6,19 @@ import { HospitalController } from './hospital.controller';
 import { HospitalService } from './hospital.service';
 import { Hospital, HospitalSchema } from './schemas/hospital.schema';
 import { AuthModule } from 'src/auth/auth.module';
-import { BedspaceModule } from 'src/bedspace/bedspace.module';
+// import { BedspaceModule } from '../bedspace/bedspace.module';
 
 @Module({
   imports: [
     forwardRef(() => AuthModule),
     MongooseModule.forFeature([
-      { name: Hospital.name, schema: HospitalSchema },
+      { name: Hospital.name, schema: HospitalSchema, collection: 'hospitals' },
     ]),
-    forwardRef(() => BedspaceModule), // Handle circular dependency
+    // forwardRef(() => BedspaceModule), // Handle circular dependency
     EventEmitterModule.forRoot(),
   ],
   controllers: [HospitalController],
   providers: [HospitalService],
-  exports: [HospitalService],
+  exports: [HospitalService, MongooseModule],
 })
 export class HospitalModule {}

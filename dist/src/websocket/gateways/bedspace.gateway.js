@@ -88,6 +88,9 @@ let BedspaceGateway = class BedspaceGateway {
     handleSubscribeHospital(client, payload) {
         try {
             const { hospitalId } = payload;
+            if (!hospitalId) {
+                throw new websockets_1.WsException('Hospital ID is required');
+            }
             this.logger.log(`Client ${client.id} subscribing to hospital ${hospitalId}`);
             const roomName = `hospital:${hospitalId}`;
             client.join(roomName);
@@ -114,6 +117,9 @@ let BedspaceGateway = class BedspaceGateway {
     handleUnsubscribeHospital(client, payload) {
         try {
             const { hospitalId } = payload;
+            if (!hospitalId) {
+                throw new websockets_1.WsException('Hospital ID is required');
+            }
             this.logger.log(`Client ${client.id} unsubscribing from hospital ${hospitalId}`);
             const roomName = `hospital:${hospitalId}`;
             client.leave(roomName);
@@ -137,6 +143,9 @@ let BedspaceGateway = class BedspaceGateway {
     handleSubscribeRegion(client, payload) {
         try {
             const { latitude, longitude, radius } = payload;
+            if (latitude === undefined || longitude === undefined || radius === undefined) {
+                throw new websockets_1.WsException('Latitude, longitude, and radius are required');
+            }
             const regionKey = `region:${latitude.toFixed(2)}:${longitude.toFixed(2)}:${radius}`;
             this.logger.log(`Client ${client.id} subscribing to region ${regionKey}`);
             client.join(regionKey);
@@ -162,7 +171,21 @@ let BedspaceGateway = class BedspaceGateway {
     }
     async sendCurrentBedspaceData(client, hospitalId) {
         try {
-            const bedspaces = await this.bedspaceModel.find({ hospital: hospitalId }).exec();
+            let query;
+            if (this.isValidObjectId(hospitalId)) {
+                query = {
+                    $or: [
+                        { hospital: new mongoose_2.Types.ObjectId(hospitalId) },
+                        { hospital: hospitalId }
+                    ]
+                };
+            }
+            else {
+                query = { hospital: hospitalId };
+            }
+            const bedspaces = await this.bedspaceModel.find(query)
+                .maxTimeMS(5000)
+                .exec();
             if (bedspaces.length > 0) {
                 client.emit('initial_bedspace_data', {
                     hospitalId,
@@ -170,40 +193,108 @@ let BedspaceGateway = class BedspaceGateway {
                     timestamp: new Date().toISOString()
                 });
             }
+            else {
+                const hospital = await this.findHospitalByIdOrPlaceId(hospitalId);
+                if (hospital) {
+                    client.emit('initial_bedspace_data', {
+                        hospitalId,
+                        bedspaces: [],
+                        message: 'No bedspaces found for this hospital',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                else {
+                    client.emit('error', {
+                        code: 'HOSPITAL_NOT_FOUND',
+                        message: `Hospital with ID ${hospitalId} not found`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
         }
         catch (error) {
             this.logger.error(`Error sending current bedspace data: ${error.message}`);
+            client.emit('error', {
+                code: 'BEDSPACE_DATA_ERROR',
+                message: 'Unable to retrieve bedspace data. Please try again later.',
+                timestamp: new Date().toISOString()
+            });
         }
     }
+    isValidObjectId(id) {
+        if (!id || typeof id !== 'string') {
+            return false;
+        }
+        return mongoose_2.Types.ObjectId.isValid(id) && /^[0-9a-fA-F]{24}$/.test(id);
+    }
     handleBedspaceUpdated(payload) {
-        this.logger.log(`Bedspace updated for hospital ${payload.hospitalId}`);
-        const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `bedspace_update_${Date.now()}` });
-        this.server.to(`hospital:${payload.hospitalId}`).emit('bedspace_updated', eventPayload);
-        this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_bedspace_updated', eventPayload);
+        try {
+            if (!payload || !payload.hospitalId) {
+                this.logger.error('Invalid bedspace update payload');
+                return;
+            }
+            this.logger.log(`Bedspace updated for hospital ${payload.hospitalId}`);
+            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `bedspace_update_${Date.now()}` });
+            this.server.to(`hospital:${payload.hospitalId}`).emit('bedspace_updated', eventPayload);
+            this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_bedspace_updated', eventPayload);
+        }
+        catch (error) {
+            this.logger.error(`Error handling bedspace update: ${error.message}`);
+        }
     }
     handleEmergencyCreated(payload) {
-        this.logger.log(`Emergency created for hospital ${payload.hospitalId}`);
-        const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `emergency_create_${Date.now()}` });
-        this.server.to(`hospital:${payload.hospitalId}`).emit('emergency_created', eventPayload);
-        this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_emergency_created', eventPayload);
+        try {
+            if (!payload || !payload.hospitalId) {
+                this.logger.error('Invalid emergency created payload');
+                return;
+            }
+            this.logger.log(`Emergency created for hospital ${payload.hospitalId}`);
+            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `emergency_create_${Date.now()}` });
+            this.server.to(`hospital:${payload.hospitalId}`).emit('emergency_created', eventPayload);
+            this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_emergency_created', eventPayload);
+        }
+        catch (error) {
+            this.logger.error(`Error handling emergency creation: ${error.message}`);
+        }
     }
     handleHospitalStatusChanged(payload) {
-        this.logger.log(`Hospital ${payload.hospitalId} status changed to ${payload.status}`);
-        const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `status_change_${Date.now()}` });
-        this.server.emit('hospital_status_changed', eventPayload);
+        try {
+            if (!payload || !payload.hospitalId) {
+                this.logger.error('Invalid hospital status change payload');
+                return;
+            }
+            this.logger.log(`Hospital ${payload.hospitalId} status changed to ${payload.status}`);
+            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `status_change_${Date.now()}` });
+            this.server.emit('hospital_status_changed', eventPayload);
+        }
+        catch (error) {
+            this.logger.error(`Error handling hospital status change: ${error.message}`);
+        }
     }
     async emitToRegionalSubscribers(hospitalId, eventName, payload) {
         try {
-            const hospital = await this.hospitalModel.findById(hospitalId).exec();
-            if (!hospital)
+            if (!hospitalId) {
+                this.logger.error('Invalid hospital ID for regional emission');
                 return;
+            }
+            const hospital = await this.findHospitalByIdOrPlaceId(hospitalId);
+            if (!hospital) {
+                this.logger.warn(`Hospital ${hospitalId} not found for regional emission`);
+                return;
+            }
             const regionRooms = Array.from(this.server.sockets.adapter.rooms.keys())
                 .filter(room => room.startsWith('region:'));
             for (const room of regionRooms) {
                 const [, latStr, lngStr, radiusStr] = room.split(':');
+                if (!latStr || !lngStr || !radiusStr) {
+                    continue;
+                }
                 const regionLat = parseFloat(latStr);
                 const regionLng = parseFloat(lngStr);
                 const radius = parseFloat(radiusStr);
+                if (isNaN(regionLat) || isNaN(regionLng) || isNaN(radius)) {
+                    continue;
+                }
                 const distance = this.calculateDistance(regionLat, regionLng, hospital.latitude, hospital.longitude);
                 if (distance <= radius) {
                     this.server.to(room).emit(eventName, payload);
@@ -215,6 +306,9 @@ let BedspaceGateway = class BedspaceGateway {
         }
     }
     calculateDistance(lat1, lon1, lat2, lon2) {
+        if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+            return Infinity;
+        }
         const R = 6371e3;
         const φ1 = lat1 * Math.PI / 180;
         const φ2 = lat2 * Math.PI / 180;
@@ -225,6 +319,39 @@ let BedspaceGateway = class BedspaceGateway {
                 Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+    async findHospitalByIdOrPlaceId(id) {
+        try {
+            if (!id) {
+                this.logger.error('Invalid hospital ID: null or undefined');
+                return null;
+            }
+            const isValidObjectId = id && typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+            let query;
+            if (isValidObjectId) {
+                const hospitalById = await this.hospitalModel.findById(id)
+                    .select('_id hospitalName latitude longitude location placeId')
+                    .lean()
+                    .maxTimeMS(3000)
+                    .exec();
+                if (hospitalById) {
+                    return hospitalById;
+                }
+                query = { placeId: id };
+            }
+            else {
+                query = { placeId: id };
+            }
+            return await this.hospitalModel.findOne(query)
+                .select('_id hospitalName latitude longitude location placeId')
+                .lean()
+                .maxTimeMS(3000)
+                .exec();
+        }
+        catch (error) {
+            this.logger.error(`Error finding hospital: ${error}`);
+            return null;
+        }
     }
 };
 __decorate([
