@@ -19,6 +19,9 @@ import mongoose from 'mongoose';
           uri: mongoUri,
           useNewUrlParser: true,
           useUnifiedTopology: true,
+          connectTimeoutMS: 30000,
+          socketTimeoutMS: 30000,
+          serverSelectionTimeoutMS: 30000,
         };
       },
     }),

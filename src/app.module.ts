@@ -54,8 +54,8 @@ import { MigrationsModule } from './migrations/migrations.module';
     }),
     
     // Application modules
-    AuthModule,
     DatabaseModule,
+    AuthModule,
     HospitalModule,
     BedspaceModule,
     StaffingModule,
