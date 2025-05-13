@@ -33,13 +33,6 @@ let HospitalService = class HospitalService {
     async findAll(query) {
         return this.hospitalModel.find(query).populate('bedspaces').exec();
     }
-    async findOne(id) {
-        const hospital = await this.hospitalModel.findById(id).populate('bedspaces').exec();
-        if (!hospital) {
-            throw new common_1.NotFoundException(`Hospital with ID ${id} not found`);
-        }
-        return hospital;
-    }
     async findByUsernameOrEmail(usernameOrEmail) {
         const hospital = await this.hospitalModel.findOne({
             $or: [
@@ -195,6 +188,32 @@ let HospitalService = class HospitalService {
         }
         await hospital.updateBedspaceSummary();
         return hospital;
+    }
+    async findOne(id) {
+        try {
+            if (/^[0-9a-fA-F]{24}$/.test(id)) {
+                const hospital = await this.hospitalModel.findById(id)
+                    .maxTimeMS(5000)
+                    .exec();
+                if (hospital) {
+                    return hospital;
+                }
+            }
+            const hospitalByPlaceId = await this.hospitalModel.findOne({ placeId: id })
+                .maxTimeMS(5000)
+                .exec();
+            if (hospitalByPlaceId) {
+                return hospitalByPlaceId;
+            }
+            throw new common_1.NotFoundException(`Hospital with ID ${id} not found`);
+        }
+        catch (error) {
+            if (error instanceof common_1.NotFoundException) {
+                throw error;
+            }
+            console.error(`Error finding hospital with ID ${id}:`, error);
+            throw new common_1.NotFoundException(`Error finding hospital with ID ${id}`);
+        }
     }
 };
 HospitalService = __decorate([

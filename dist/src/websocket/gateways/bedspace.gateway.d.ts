@@ -46,6 +46,7 @@ export declare class BedspaceGateway implements OnGatewayInit, OnGatewayConnecti
         timestamp: string;
     };
     private sendCurrentBedspaceData;
+    private isValidObjectId;
     handleBedspaceUpdated(payload: {
         hospitalId: string;
         bedspace: any;
@@ -60,4 +61,5 @@ export declare class BedspaceGateway implements OnGatewayInit, OnGatewayConnecti
     }): void;
     private emitToRegionalSubscribers;
     private calculateDistance;
+    private findHospitalByIdOrPlaceId;
 }

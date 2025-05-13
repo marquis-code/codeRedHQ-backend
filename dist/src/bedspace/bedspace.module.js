@@ -13,6 +13,7 @@ const event_emitter_1 = require("@nestjs/event-emitter");
 const bedspace_controller_1 = require("./bedspace.controller");
 const bedspace_service_1 = require("./bedspace.service");
 const bedspace_schema_1 = require("./schemas/bedspace.schema");
+const hospital_module_1 = require("../hospital/hospital.module");
 let BedspaceModule = class BedspaceModule {
 };
 BedspaceModule = __decorate([
@@ -21,6 +22,7 @@ BedspaceModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: bedspace_schema_1.Bedspace.name, schema: bedspace_schema_1.BedspaceSchema },
             ]),
+            hospital_module_1.HospitalModule,
             event_emitter_1.EventEmitterModule.forRoot(),
         ],
         controllers: [bedspace_controller_1.BedspaceController],

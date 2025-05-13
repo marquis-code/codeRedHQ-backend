@@ -7,7 +7,6 @@ export declare class HospitalService {
     constructor(hospitalModel: Model<HospitalModel>);
     create(createHospitalDto: CreateHospitalDto): Promise<Hospital>;
     findAll(query: any): Promise<Hospital[]>;
-    findOne(id: string): Promise<Hospital>;
     findByUsernameOrEmail(usernameOrEmail: string): Promise<Hospital>;
     update(id: string, updateHospitalDto: UpdateHospitalDto): Promise<Hospital>;
     remove(id: string): Promise<void>;
@@ -18,4 +17,5 @@ export declare class HospitalService {
     private generateUniqueUsername;
     validateHospital(usernameOrEmail: string, password: string): Promise<Hospital | null>;
     updateHospitalBedspaceSummary(hospitalId: string): Promise<Hospital>;
+    findOne(id: string): Promise<Hospital>;
 }

@@ -1,6 +1,6 @@
 // Hospital Schema updates
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, model, Types } from 'mongoose';
+import { Document, Schema as MongooseSchema, model,Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 
 export type HospitalDocument = Hospital & Document;
@@ -25,14 +25,14 @@ export class Hospital {
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ required: true })
-  password: string;
-
   @Prop()
   placeId: string;
 
-  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Bedspace' }], default: [] })
-  bedspaces: Types.ObjectId[];
+  // @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Bedspace' }], default: [] })
+  // bedspaces: Types.ObjectId[];
+
+  @Prop({ required: true })
+  password: string;
 
   @Prop({ required: true })
   hospitalName: string;
@@ -221,107 +221,47 @@ HospitalSchema.methods.comparePassword = async function(candidatePassword: strin
 };
 
 // Method to update bedspace summary when bedspaces change
-// HospitalSchema.methods.updateBedspaceSummary = async function(): Promise<void> {
-//   const hospital = this as HospitalDocument;
-  
-//   try {
-//     // Get the Bedspace model
-//     const BedspaceModel = model('Bedspace');
-    
-//     // Fetch all bedspaces for this hospital
-//     const bedspaces = await BedspaceModel.find({ hospital: hospital._id });
-    
-//     // Update the summary fields
-//     hospital.bedspacesSummary = bedspaces.map(b => ({
-//       _id: b._id,
-//       departmentName: b.departmentName,
-//       location: b.location,
-//       totalBeds: b.totalBeds,
-//       availableBeds: b.availableBeds,
-//       occupiedBeds: b.occupiedBeds,
-//       status: b.status,
-//       lastUpdated: b.lastUpdated
-//     }));
-    
-//     // Calculate totals
-//     hospital.totalBedCount = bedspaces.reduce((sum, b) => sum + b.totalBeds, 0);
-//     hospital.totalAvailableBeds = bedspaces.reduce((sum, b) => sum + b.availableBeds, 0);
-    
-//     // Determine overall status
-//     if (hospital.totalBedCount === 0) {
-//       hospital.overallBedStatus = 'Available'; // Default if no beds are defined
-//     } else if (hospital.totalAvailableBeds === 0) {
-//       hospital.overallBedStatus = 'Unavailable';
-//     } else if (hospital.totalAvailableBeds / hospital.totalBedCount < 0.2) {
-//       hospital.overallBedStatus = 'Limited';
-//     } else {
-//       hospital.overallBedStatus = 'Available';
-//     }
-    
-//     // Save the hospital document
-//     await hospital.save();
-//   } catch (error) {
-//     console.error('Error updating bedspace summary:', error);
-//     throw error;
-//   }
-// };
-
-// Add the updateBedspaceSummary method to the schema
-HospitalSchema.methods.updateBedspaceSummary = async function() {
+HospitalSchema.methods.updateBedspaceSummary = async function(): Promise<void> {
   const hospital = this as HospitalDocument;
   
   try {
-    // Get the connection from this document
-    const connection = (hospital.constructor as any).db.connection;
+    // Get the Bedspace model
+    const BedspaceModel = model('Bedspace');
     
-    // Get the Bedspace model from the connection
-    const BedspaceModel = connection.models.Bedspace;
+    // Fetch all bedspaces for this hospital
+    const bedspaces = await BedspaceModel.find({ hospital: hospital._id });
     
-    if (!BedspaceModel) {
-      console.error('Bedspace model not found in connection');
-      return;
+    // Update the summary fields
+    hospital.bedspacesSummary = bedspaces.map(b => ({
+      _id: b._id,
+      departmentName: b.departmentName,
+      location: b.location,
+      totalBeds: b.totalBeds,
+      availableBeds: b.availableBeds,
+      occupiedBeds: b.occupiedBeds,
+      status: b.status,
+      lastUpdated: b.lastUpdated
+    }));
+    
+    // Calculate totals
+    hospital.totalBedCount = bedspaces.reduce((sum, b) => sum + b.totalBeds, 0);
+    hospital.totalAvailableBeds = bedspaces.reduce((sum, b) => sum + b.availableBeds, 0);
+    
+    // Determine overall status
+    if (hospital.totalBedCount === 0) {
+      hospital.overallBedStatus = 'Available'; // Default if no beds are defined
+    } else if (hospital.totalAvailableBeds === 0) {
+      hospital.overallBedStatus = 'Unavailable';
+    } else if (hospital.totalAvailableBeds / hospital.totalBedCount < 0.2) {
+      hospital.overallBedStatus = 'Limited';
+    } else {
+      hospital.overallBedStatus = 'Available';
     }
     
-    // Aggregate bedspace data for this hospital
-    const aggregationResult = await BedspaceModel.aggregate([
-      { 
-        $match: { 
-          hospital: { 
-            $in: [
-              hospital._id, 
-              hospital.placeId // Match by either _id or placeId
-            ] 
-          } 
-        } 
-      },
-      { 
-        $group: {
-          _id: null,
-          totalBeds: { $sum: '$totalBeds' },
-          availableBeds: { $sum: '$availableBeds' },
-          occupiedBeds: { $sum: '$occupiedBeds' }
-        }
-      }
-    ]).exec();
-    
-    // Update hospital summary fields if they exist
-    if (aggregationResult.length > 0) {
-      const result = aggregationResult[0];
-      
-      // Update summary fields if they exist on the schema
-      if ('totalBeds' in hospital) hospital['totalBeds'] = result.totalBeds;
-      if ('availableBeds' in hospital) hospital['availableBeds'] = result.availableBeds;
-      if ('occupiedBeds' in hospital) hospital['occupiedBeds'] = result.occupiedBeds;
-      
-      // Calculate occupancy rate if the field exists
-      if ('occupancyRate' in hospital && result.totalBeds > 0) {
-        hospital['occupancyRate'] = Math.round((result.occupiedBeds / result.totalBeds) * 100);
-      }
-      
-      // Save the updated hospital
-      await hospital.save();
-    }
+    // Save the hospital document
+    await hospital.save();
   } catch (error) {
-    console.error('Error updating hospital bedspace summary:', error);
+    console.error('Error updating bedspace summary:', error);
+    throw error;
   }
 };

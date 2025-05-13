@@ -1,18 +1,15 @@
 
-import { Injectable, forwardRef, ConflictException, NotFoundException,Inject } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model,Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Hospital, HospitalModel } from './schemas/hospital.schema';
 import { CreateHospitalDto } from './dto/create-hospital.dto';
 import { UpdateHospitalDto } from './dto/update-hospital.dto';
-import { BedspaceService } from '../bedspace/bedspace.service';
 
 @Injectable()
 export class HospitalService {
   constructor(
     @InjectModel(Hospital.name) private hospitalModel: Model<HospitalModel>,
-    @Inject(forwardRef(() => BedspaceService))
-    private bedspaceService: BedspaceService,
   ) {}
 
   async create(createHospitalDto: CreateHospitalDto): Promise<Hospital> {
@@ -41,13 +38,13 @@ export class HospitalService {
     return this.hospitalModel.find(query).populate('bedspaces').exec();
   }
 
-  async findOne(id: string): Promise<Hospital> {
-    const hospital = await this.hospitalModel.findById(id).populate('bedspaces').exec();
-    if (!hospital) {
-      throw new NotFoundException(`Hospital with ID ${id} not found`);
-    }
-    return hospital;
-  }
+  // async findOne(id: string): Promise<Hospital> {
+  //   const hospital = await this.hospitalModel.findById(id).populate('bedspaces').exec();
+  //   if (!hospital) {
+  //     throw new NotFoundException(`Hospital with ID ${id} not found`);
+  //   }
+  //   return hospital;
+  // }
 
   async findByUsernameOrEmail(usernameOrEmail: string): Promise<Hospital> {
     const hospital = await this.hospitalModel.findOne({
@@ -258,69 +255,69 @@ async updateHospitalBedspaceSummary(hospitalId: string): Promise<Hospital> {
   return hospital;
 }
 
-  // Add a bedspace to a hospital
-  async addBedspace(hospitalId: string, bedspaceId: string): Promise<Hospital> {
-    try {
-      // Try to find by _id first
-      let hospital = await this.hospitalModel.findById(hospitalId);
+// async findOne(id: string): Promise<Hospital> {
+//   try {
+//     // First try to find by _id if it's a valid ObjectId
+//     if (/^[0-9a-fA-F]{24}$/.test(id)) {
+//       const hospital = await this.hospitalModel.findById(id)
+//         .maxTimeMS(5000) // Add a 5-second timeout
+//         .exec();
       
-      // If not found, try to find by placeId
-      if (!hospital) {
-        hospital = await this.hospitalModel.findOne({ placeId: hospitalId });
-      }
-      
-      if (!hospital) {
-        throw new NotFoundException(`Hospital with ID ${hospitalId} not found`);
-      }
-      
-      // Add bedspace to hospital if not already present
-      if (!hospital.bedspaces.includes(new Types.ObjectId(bedspaceId))) {
-        hospital.bedspaces.push(new Types.ObjectId(bedspaceId));
-        await hospital.save();
-      }
-      
-      // Update summary if method exists
-      if (typeof hospital.updateBedspaceSummary === 'function') {
-        await hospital.updateBedspaceSummary();
-      }
-      
-      return hospital;
-    } catch (error) {
-      console.error('Error adding bedspace to hospital:', error);
-      throw error;
-    }
-  }
+//       if (hospital) {
+//         return hospital;
+//       }
+//     }
+    
+//     // If not found by _id or not a valid ObjectId, try by placeId
+//     const hospitalByPlaceId = await this.hospitalModel.findOne({ placeId: id })
+//       .maxTimeMS(5000) // Add a 5-second timeout
+//       .exec();
+    
+//     if (hospitalByPlaceId) {
+//       return hospitalByPlaceId;
+//     }
+    
+//     throw new NotFoundException(`Hospital with ID ${id} not found`);
+//   } catch (error) {
+//     if (error instanceof NotFoundException) {
+//       throw error;
+//     }
+//     console.error(`Error finding hospital with ID ${id}:`, error);
+//     throw new NotFoundException(`Error finding hospital with ID ${id}`);
+//   }
+// }
 
-  // Remove a bedspace from a hospital
-  async removeBedspace(hospitalId: string, bedspaceId: string): Promise<Hospital> {
-    try {
-      // Try to find by _id first
-      let hospital = await this.hospitalModel.findById(hospitalId);
+async findOne(id: string): Promise<Hospital> {
+  try {
+    // First try to find by _id if it's a valid ObjectId
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      const hospital = await this.hospitalModel.findById(id)
+        .maxTimeMS(5000) // Add a 5-second timeout
+        .exec();
       
-      // If not found, try to find by placeId
-      if (!hospital) {
-        hospital = await this.hospitalModel.findOne({ placeId: hospitalId });
+      if (hospital) {
+        return hospital;
       }
-      
-      if (!hospital) {
-        throw new NotFoundException(`Hospital with ID ${hospitalId} not found`);
-      }
-      
-      // Remove bedspace from hospital
-      hospital.bedspaces = hospital.bedspaces.filter(
-        id => id.toString() !== bedspaceId
-      );
-      await hospital.save();
-      
-      // Update summary if method exists
-      if (typeof hospital.updateBedspaceSummary === 'function') {
-        await hospital.updateBedspaceSummary();
-      }
-      
-      return hospital;
-    } catch (error) {
-      console.error('Error removing bedspace from hospital:', error);
+    }
+    
+    // If not found by _id or not a valid ObjectId, try by placeId
+    const hospitalByPlaceId = await this.hospitalModel.findOne({ placeId: id })
+      .maxTimeMS(5000) // Add a 5-second timeout
+      .exec();
+    
+    if (hospitalByPlaceId) {
+      return hospitalByPlaceId;
+    }
+    
+    throw new NotFoundException(`Hospital with ID ${id} not found`);
+  } catch (error) {
+    if (error instanceof NotFoundException) {
       throw error;
     }
+    console.error(`Error finding hospital with ID ${id}:`, error);
+    throw new NotFoundException(`Error finding hospital with ID ${id}`);
   }
+}
+
+
 }

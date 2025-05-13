@@ -5,14 +5,15 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BedspaceController } from './bedspace.controller';
 import { BedspaceService } from './bedspace.service';
 import { Bedspace, BedspaceSchema } from './schemas/bedspace.schema';
-import { HospitalModule } from 'src/hospital/hospital.module';
+import { HospitalModule } from '../hospital/hospital.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Bedspace.name, schema: BedspaceSchema },
     ]),
-    forwardRef(() => HospitalModule), // Handle circular dependency
+    HospitalModule,
+    // forwardRef(() => HospitalModule), // Handle circular dependency
     EventEmitterModule.forRoot(),
   ],
   controllers: [BedspaceController],
