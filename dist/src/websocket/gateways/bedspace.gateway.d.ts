@@ -18,6 +18,12 @@ export declare class BedspaceGateway implements OnGatewayInit, OnGatewayConnecti
     afterInit(server: Server): void;
     handleConnection(client: Socket): void;
     handleDisconnect(client: Socket): void;
+    handlePing(client: Socket, payload: any): {
+        event: string;
+        data: {
+            timestamp: string;
+        };
+    };
     handleSubscribeHospital(client: Socket, payload: {
         hospitalId: string;
     }): {

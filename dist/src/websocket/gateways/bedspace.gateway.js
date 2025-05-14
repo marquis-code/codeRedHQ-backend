@@ -85,6 +85,10 @@ let BedspaceGateway = class BedspaceGateway {
             this.clientRooms.delete(client.id);
         }
     }
+    handlePing(client, payload) {
+        this.logger.log(`Ping received from client ${client.id}`);
+        return { event: 'pong', data: { timestamp: new Date().toISOString() } };
+    }
     handleSubscribeHospital(client, payload) {
         try {
             const { hospitalId } = payload;
@@ -187,6 +191,7 @@ let BedspaceGateway = class BedspaceGateway {
                 .maxTimeMS(5000)
                 .exec();
             if (bedspaces.length > 0) {
+                this.logger.log(`Sending initial bedspace data for hospital ${hospitalId}: ${bedspaces.length} bedspaces found`);
                 client.emit('initial_bedspace_data', {
                     hospitalId,
                     bedspaces,
@@ -196,6 +201,7 @@ let BedspaceGateway = class BedspaceGateway {
             else {
                 const hospital = await this.findHospitalByIdOrPlaceId(hospitalId);
                 if (hospital) {
+                    this.logger.log(`Hospital ${hospitalId} found but no bedspaces available`);
                     client.emit('initial_bedspace_data', {
                         hospitalId,
                         bedspaces: [],
@@ -204,6 +210,7 @@ let BedspaceGateway = class BedspaceGateway {
                     });
                 }
                 else {
+                    this.logger.warn(`Hospital with ID ${hospitalId} not found`);
                     client.emit('error', {
                         code: 'HOSPITAL_NOT_FOUND',
                         message: `Hospital with ID ${hospitalId} not found`,
@@ -235,7 +242,9 @@ let BedspaceGateway = class BedspaceGateway {
             }
             this.logger.log(`Bedspace updated for hospital ${payload.hospitalId}`);
             const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `bedspace_update_${Date.now()}` });
-            this.server.to(`hospital:${payload.hospitalId}`).emit('bedspace_updated', eventPayload);
+            const roomName = `hospital:${payload.hospitalId}`;
+            this.logger.log(`Emitting bedspace_updated event to room ${roomName}`);
+            this.server.to(roomName).emit('bedspace_updated', eventPayload);
             this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_bedspace_updated', eventPayload);
         }
         catch (error) {
@@ -250,7 +259,9 @@ let BedspaceGateway = class BedspaceGateway {
             }
             this.logger.log(`Emergency created for hospital ${payload.hospitalId}`);
             const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `emergency_create_${Date.now()}` });
-            this.server.to(`hospital:${payload.hospitalId}`).emit('emergency_created', eventPayload);
+            const roomName = `hospital:${payload.hospitalId}`;
+            this.logger.log(`Emitting emergency_created event to room ${roomName}`);
+            this.server.to(roomName).emit('emergency_created', eventPayload);
             this.emitToRegionalSubscribers(payload.hospitalId, 'hospital_emergency_created', eventPayload);
         }
         catch (error) {
@@ -265,6 +276,7 @@ let BedspaceGateway = class BedspaceGateway {
             }
             this.logger.log(`Hospital ${payload.hospitalId} status changed to ${payload.status}`);
             const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `status_change_${Date.now()}` });
+            this.logger.log('Emitting hospital_status_changed event to all clients');
             this.server.emit('hospital_status_changed', eventPayload);
         }
         catch (error) {
@@ -297,6 +309,7 @@ let BedspaceGateway = class BedspaceGateway {
                 }
                 const distance = this.calculateDistance(regionLat, regionLng, hospital.latitude, hospital.longitude);
                 if (distance <= radius) {
+                    this.logger.log(`Emitting ${eventName} event to region room ${room}`);
                     this.server.to(room).emit(eventName, payload);
                 }
             }
@@ -358,6 +371,12 @@ __decorate([
     (0, websockets_1.WebSocketServer)(),
     __metadata("design:type", socket_io_1.Server)
 ], BedspaceGateway.prototype, "server", void 0);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('ping'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], BedspaceGateway.prototype, "handlePing", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('subscribe_hospital'),
     __metadata("design:type", Function),
