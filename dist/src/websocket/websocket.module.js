@@ -11,29 +11,33 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
-const bedspace_gateway_1 = require("./gateways/bedspace.gateway");
+const event_emitter_1 = require("@nestjs/event-emitter");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const bedspace_schema_1 = require("../bedspace/schemas/bedspace.schema");
+const surge_schema_1 = require("../surge/schema/surge.schema");
+const unified_hospital_gateway_1 = require("./gateways/unified-hospital.gateway");
 let WebsocketModule = class WebsocketModule {
 };
 WebsocketModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            event_emitter_1.EventEmitterModule.forRoot(),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
                 useFactory: async (configService) => ({
-                    secret: configService.get('JWT_SECRET'),
-                    signOptions: { expiresIn: '1d' },
+                    secret: configService.get("JWT_SECRET") || "your-secret-key",
+                    signOptions: { expiresIn: "1d" },
                 }),
             }),
             mongoose_1.MongooseModule.forFeature([
                 { name: hospital_schema_1.Hospital.name, schema: hospital_schema_1.HospitalSchema },
                 { name: bedspace_schema_1.Bedspace.name, schema: bedspace_schema_1.BedspaceSchema },
+                { name: surge_schema_1.Surge.name, schema: surge_schema_1.SurgeSchema },
             ]),
         ],
-        providers: [bedspace_gateway_1.BedspaceGateway],
-        exports: [bedspace_gateway_1.BedspaceGateway],
+        providers: [unified_hospital_gateway_1.UnifiedHospitalGateway],
+        exports: [unified_hospital_gateway_1.UnifiedHospitalGateway],
     })
 ], WebsocketModule);
 exports.WebsocketModule = WebsocketModule;

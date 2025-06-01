@@ -40,6 +40,7 @@ export class SurgeService {
     });
 
     const savedSurge = await newSurge.save();
+    console.log('saved surge', hospitalId)
 
     // Emit event for WebSocket gateway
     this.eventEmitter.emit('surge.created', {
