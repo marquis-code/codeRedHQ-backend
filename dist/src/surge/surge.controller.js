@@ -29,7 +29,29 @@ let SurgeController = class SurgeController {
         const statusArray = status ? status.split(',') : undefined;
         return this.surgeService.getSurgesByHospital(hospitalId, statusArray);
     }
-    async getSurgesInRegion(latitude, longitude, radius, status) {
+    async getSurgesInRegion(latString, lngString, radiusString, status) {
+        console.log('Raw query params:', { latString, lngString, radiusString, status });
+        const latitude = parseFloat(latString);
+        const longitude = parseFloat(lngString);
+        const radius = parseFloat(radiusString);
+        if (isNaN(latitude)) {
+            throw new common_1.BadRequestException(`Invalid latitude: "${latString}" is not a valid number`);
+        }
+        if (isNaN(longitude)) {
+            throw new common_1.BadRequestException(`Invalid longitude: "${lngString}" is not a valid number`);
+        }
+        if (isNaN(radius)) {
+            throw new common_1.BadRequestException(`Invalid radius: "${radiusString}" is not a valid number`);
+        }
+        if (latitude < -90 || latitude > 90) {
+            throw new common_1.BadRequestException('Latitude must be between -90 and 90 degrees');
+        }
+        if (longitude < -180 || longitude > 180) {
+            throw new common_1.BadRequestException('Longitude must be between -180 and 180 degrees');
+        }
+        if (radius <= 0) {
+            throw new common_1.BadRequestException('Radius must be greater than 0');
+        }
         const statusArray = status ? status.split(',') : undefined;
         return this.surgeService.getSurgesInRegion(latitude, longitude, radius, statusArray);
     }
@@ -67,7 +89,7 @@ __decorate([
     __param(2, (0, common_1.Query)('radius')),
     __param(3, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, Number, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], SurgeController.prototype, "getSurgesInRegion", null);
 __decorate([

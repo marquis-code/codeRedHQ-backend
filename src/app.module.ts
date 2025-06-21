@@ -17,6 +17,7 @@ import { AuditModule } from './audit/audit.module'; // Add this line
 import { SurgeModule } from './surge/surge.module';
 import { DatabaseModule } from './database/database.module';
 import { MigrationsModule } from './migrations/migrations.module';
+import { HospitalClicksModule } from './hospital-click/hospital-clicks.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { MigrationsModule } from './migrations/migrations.module';
     UserModule,
     SurgeModule,
     MigrationsModule,
+    HospitalClicksModule
   ],
 })
 export class AppModule {}

@@ -24,6 +24,7 @@ const audit_module_1 = require("./audit/audit.module");
 const surge_module_1 = require("./surge/surge.module");
 const database_module_1 = require("./database/database.module");
 const migrations_module_1 = require("./migrations/migrations.module");
+const hospital_clicks_module_1 = require("./hospital-click/hospital-clicks.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -60,6 +61,7 @@ AppModule = __decorate([
             user_module_1.UserModule,
             surge_module_1.SurgeModule,
             migrations_module_1.MigrationsModule,
+            hospital_clicks_module_1.HospitalClicksModule
         ],
     })
 ], AppModule);

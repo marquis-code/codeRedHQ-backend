@@ -16,6 +16,6 @@ export declare class SurgeController {
         metadata?: Record<string, any>;
     }): Promise<import("./schema/surge.schema").Surge>;
     getSurgesByHospital(hospitalId: string, status?: string): Promise<import("./schema/surge.schema").Surge[]>;
-    getSurgesInRegion(latitude: number, longitude: number, radius: number, status?: string): Promise<import("./schema/surge.schema").Surge[]>;
+    getSurgesInRegion(latString: string, lngString: string, radiusString: string, status?: string): Promise<import("./schema/surge.schema").Surge[]>;
     getSurgeById(id: string): Promise<import("./schema/surge.schema").Surge>;
 }

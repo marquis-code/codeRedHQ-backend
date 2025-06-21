@@ -46,6 +46,7 @@ let SurgeService = SurgeService_1 = class SurgeService {
         }
         const newSurge = new this.surgeModel(Object.assign(Object.assign({}, surgeData), { hospital: hospitalId, status: 'pending' }));
         const savedSurge = await newSurge.save();
+        console.log('saved surge', hospitalId);
         this.eventEmitter.emit('surge.created', {
             hospitalId,
             surge: savedSurge.toObject(),
