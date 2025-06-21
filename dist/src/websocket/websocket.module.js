@@ -15,6 +15,8 @@ const event_emitter_1 = require("@nestjs/event-emitter");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const bedspace_schema_1 = require("../bedspace/schemas/bedspace.schema");
 const surge_schema_1 = require("../surge/schema/surge.schema");
+const hospital_click_schema_1 = require("../hospital-click/schemas/hospital-click.schema");
+const hospital_clicks_module_1 = require("../hospital-click/hospital-clicks.module");
 const unified_hospital_gateway_1 = require("./gateways/unified-hospital.gateway");
 let WebsocketModule = class WebsocketModule {
 };
@@ -34,7 +36,9 @@ WebsocketModule = __decorate([
                 { name: hospital_schema_1.Hospital.name, schema: hospital_schema_1.HospitalSchema },
                 { name: bedspace_schema_1.Bedspace.name, schema: bedspace_schema_1.BedspaceSchema },
                 { name: surge_schema_1.Surge.name, schema: surge_schema_1.SurgeSchema },
+                { name: hospital_click_schema_1.HospitalClick.name, schema: hospital_click_schema_1.HospitalClickSchema }
             ]),
+            hospital_clicks_module_1.HospitalClicksModule,
         ],
         providers: [unified_hospital_gateway_1.UnifiedHospitalGateway],
         exports: [unified_hospital_gateway_1.UnifiedHospitalGateway],

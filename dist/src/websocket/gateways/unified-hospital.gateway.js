@@ -22,21 +22,29 @@ const mongoose_2 = require("mongoose");
 const hospital_schema_1 = require("../../hospital/schemas/hospital.schema");
 const bedspace_schema_1 = require("../../bedspace/schemas/bedspace.schema");
 const surge_schema_1 = require("../../surge/schema/surge.schema");
+const hospital_click_schema_1 = require("../../hospital-click/schemas/hospital-click.schema");
+const hospital_clicks_service_1 = require("../../hospital-click/hospital-clicks.service");
 let UnifiedHospitalGateway = class UnifiedHospitalGateway {
-    constructor(eventEmitter, jwtService, hospitalModel, bedspaceModel, surgeModel) {
+    constructor(eventEmitter, jwtService, hospitalClicksService, hospitalModel, bedspaceModel, surgeModel, hospitalClickModel) {
         this.eventEmitter = eventEmitter;
         this.jwtService = jwtService;
+        this.hospitalClicksService = hospitalClicksService;
         this.hospitalModel = hospitalModel;
         this.bedspaceModel = bedspaceModel;
         this.surgeModel = surgeModel;
+        this.hospitalClickModel = hospitalClickModel;
         this.logger = new common_1.Logger("UnifiedHospitalGateway");
         this.connectedClients = new Map();
         this.clientRooms = new Map();
         this.clientChannels = new Map();
+        this.clientSessions = new Map();
         this.regionalSubscriptions = new Map();
+        this.clickRateLimit = new Map();
+        this.CLICK_RATE_LIMIT = 10;
+        this.RATE_LIMIT_WINDOW = 60000;
     }
     afterInit(server) {
-        this.logger.log("🚀 Unified Hospital WebSocket Gateway initialized");
+        this.logger.log("🚀 Enhanced Unified Hospital WebSocket Gateway initialized with robust click handling");
         server.use((socket, next) => {
             var _a;
             this.logger.log(`🔌 Socket middleware: ${socket.id} from ${socket.handshake.address}`);
@@ -66,104 +74,295 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
         server.on("connection_error", (err) => {
             this.logger.error(`❌ Connection error: ${err.message}`);
         });
-        this.logger.log("✅ Unified WebSocket server ready to accept connections");
-        this.logger.log(`🌐 Server listening on transports: websocket, polling`);
-        this.logger.log(`⚙️ CORS enabled for all origins`);
+        this.logger.log("✅ Unified WebSocket server ready with enhanced click validation");
+        this.logger.log(`🌐 Features: Location validation (30km), Rate limiting, Surge detection`);
     }
     handleConnection(client) {
         this.logger.log(`🔗 Client connected to unified gateway: ${client.id}`);
-        this.logger.log(`📊 Connection transport: ${client.conn.transport.name}`);
+        const sessionId = `session_${client.id}_${Date.now()}`;
+        this.clientSessions.set(client.id, sessionId);
         if (!this.clientRooms.has(client.id)) {
             this.clientRooms.set(client.id, new Set());
         }
         if (!this.clientChannels.has(client.id)) {
             this.clientChannels.set(client.id, new Set());
         }
+        this.clickRateLimit.set(sessionId, { count: 0, resetTime: Date.now() + this.RATE_LIMIT_WINDOW });
         client.emit("connection_status", {
             connected: true,
             clientId: client.id,
+            sessionId,
             timestamp: new Date().toISOString(),
             transport: client.conn.transport.name,
-            message: "Successfully connected to unified hospital gateway",
-            modules: ["surge", "bedspace", "general"],
+            message: "Connected to enhanced hospital monitoring system with robust click handling",
+            modules: ["surge", "bedspace", "hospital-clicks", "general"],
             authenticated: client.data.authenticated || false,
+            clickValidation: {
+                locationValidation: true,
+                radiusKm: 30,
+                rateLimit: this.CLICK_RATE_LIMIT,
+                rateLimitWindowMs: this.RATE_LIMIT_WINDOW,
+                surgeWindowMinutes: 30,
+            },
         });
         client.emit("welcome", {
-            message: "Welcome to the Unified Hospital Monitoring System",
+            message: "Welcome to the Enhanced Unified Hospital Monitoring System",
             clientId: client.id,
+            sessionId,
             timestamp: new Date().toISOString(),
-            availableModules: ["surge", "bedspace", "general"],
+            modules: ["surge", "bedspace", "hospital-clicks", "general"],
             availableEvents: [
+                "hospital-click",
+                "get-hospital-click-stats",
+                "get-surge-history",
+                "subscribe_hospital_clicks",
+                "reset-hospital-clicks",
                 "subscribe_hospital_surges",
                 "subscribe_regional_surges",
-                "subscribe_hospital",
-                "subscribe_channel",
                 "create_surge",
+                "subscribe_hospital",
                 "updateBedSpace",
+                "get_initial_bedspace_data",
+                "subscribe_channel",
                 "get_connection_stats",
+                "ping",
             ],
         });
-        client.emit("heartbeat", {
-            timestamp: new Date().toISOString(),
-            message: "Initial heartbeat",
-        });
-        const interval = setInterval(() => {
-            if (client.connected) {
-                client.emit("heartbeat", {
-                    timestamp: new Date().toISOString(),
-                    clientId: client.id,
-                });
-            }
-            else {
-                clearInterval(interval);
-            }
-        }, 30000);
-        client.data.heartbeatInterval = interval;
+        this.setupHeartbeat(client, sessionId);
         this.logger.log(`📊 Total connected clients: ${this.server.sockets.sockets.size}`);
         client.broadcast.emit("client_connected", {
             clientId: client.id,
+            sessionId,
             timestamp: new Date().toISOString(),
             totalClients: this.server.sockets.sockets.size,
         });
     }
     handleDisconnect(client) {
         this.logger.log(`❌ Client disconnected from unified gateway: ${client.id}`);
+        const sessionId = this.clientSessions.get(client.id);
         if (client.data.heartbeatInterval) {
             clearInterval(client.data.heartbeatInterval);
         }
-        if (this.clientRooms.has(client.id)) {
-            const rooms = this.clientRooms.get(client.id);
-            rooms.forEach((room) => {
-                if (this.connectedClients.has(room)) {
-                    this.connectedClients.get(room).delete(client.id);
-                }
-            });
-            this.clientRooms.delete(client.id);
+        this.clientSessions.delete(client.id);
+        if (sessionId) {
+            this.clickRateLimit.delete(sessionId);
         }
-        if (this.clientChannels.has(client.id)) {
-            this.clientChannels.delete(client.id);
-        }
+        this.cleanupClientSubscriptions(client.id);
         this.logger.log(`📊 Total connected clients: ${this.server.sockets.sockets.size}`);
+    }
+    async handleHospitalClick(data, client) {
+        try {
+            const { hospitalId, latitude, longitude, userAgent } = data;
+            const sessionId = this.clientSessions.get(client.id);
+            if (!sessionId) {
+                throw new websockets_1.WsException("Session not found");
+            }
+            if (!hospitalId || latitude === undefined || longitude === undefined) {
+                throw new websockets_1.WsException("Hospital ID, latitude, and longitude are required");
+            }
+            if (!this.checkRateLimit(sessionId)) {
+                throw new websockets_1.WsException("Rate limit exceeded. Please wait before clicking again.");
+            }
+            this.logger.log(`🖱️ Hospital click received: ${hospitalId} from ${sessionId} at ${latitude}, ${longitude}`);
+            const clickData = {
+                hospitalId,
+                sessionId,
+                latitude,
+                longitude,
+                userAgent: userAgent || client.handshake.headers["user-agent"],
+                ipAddress: client.handshake.address,
+            };
+            const result = await this.hospitalClicksService.handleClick(clickData);
+            const clickUpdatePayload = {
+                hospitalId,
+                clickCount: result.clickCount,
+                surgeTriggered: result.surgeTriggered,
+                message: result.message,
+                isValidLocation: result.isValidLocation,
+                distanceFromHospital: result.distanceFromHospital,
+                timestamp: new Date().toISOString(),
+                sessionId,
+                location: { latitude, longitude },
+                hospitalInfo: result.hospitalInfo,
+                validationInfo: {
+                    radiusKm: 30,
+                    withinRadius: result.isValidLocation,
+                    distanceKm: Math.round(result.distanceFromHospital / 1000),
+                },
+                eventId: `click_${Date.now()}`,
+            };
+            await this.emitToHospitalRooms(hospitalId, "click-count-updated", clickUpdatePayload);
+            await this.emitToHospitalRooms(hospitalId, "hospital-click-processed", clickUpdatePayload);
+            if (result.isValidLocation) {
+                await this.emitToRegionalSubscribers(hospitalId, "hospital-click-updated", clickUpdatePayload);
+            }
+            if (result.surgeTriggered && result.data) {
+                await this.handleSurgeTriggered(result.data, clickUpdatePayload);
+            }
+            client.emit("hospital-click-response", {
+                success: true,
+                clickCount: result.clickCount,
+                surgeTriggered: result.surgeTriggered,
+                message: result.message,
+                isValidLocation: result.isValidLocation,
+                distanceFromHospital: result.distanceFromHospital,
+                sessionId,
+                timestamp: new Date().toISOString(),
+            });
+            return {
+                success: true,
+                clickCount: result.clickCount,
+                surgeTriggered: result.surgeTriggered,
+                message: result.message,
+                isValidLocation: result.isValidLocation,
+                distanceFromHospital: result.distanceFromHospital,
+                sessionId,
+            };
+        }
+        catch (error) {
+            this.logger.error("Error handling hospital click:", error);
+            client.emit("hospital-click-error", {
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            });
+            return {
+                success: false,
+                error: error.message,
+                isValidLocation: false,
+            };
+        }
+    }
+    async getHospitalClickStats(data, client) {
+        try {
+            const { hospitalId } = data;
+            if (!hospitalId) {
+                throw new websockets_1.WsException("Hospital ID is required");
+            }
+            const stats = await this.hospitalClicksService.getClickStatistics(hospitalId);
+            const statsPayload = Object.assign(Object.assign({ hospitalId }, stats), { timestamp: new Date().toISOString(), eventId: `stats_${Date.now()}` });
+            client.emit("hospital-click-stats", statsPayload);
+            this.logger.log(`📊 Click stats sent for hospital ${hospitalId}`);
+            return { success: true, stats: statsPayload };
+        }
+        catch (error) {
+            this.logger.error("Error getting hospital click stats:", error);
+            client.emit("hospital-click-stats-error", {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            });
+            return { success: false, error: error.message };
+        }
+    }
+    async getSurgeHistory(data, client) {
+        try {
+            const { hospitalId, limit = 10 } = data;
+            if (!hospitalId) {
+                throw new websockets_1.WsException("Hospital ID is required");
+            }
+            const surgeHistory = await this.hospitalClicksService.getSurgeHistory(hospitalId, limit);
+            const historyPayload = {
+                hospitalId,
+                surgeHistory,
+                limit,
+                timestamp: new Date().toISOString(),
+                eventId: `history_${Date.now()}`,
+            };
+            client.emit("surge-history", historyPayload);
+            this.logger.log(`📜 Surge history sent for hospital ${hospitalId} (${surgeHistory.length} records)`);
+            return { success: true, history: historyPayload };
+        }
+        catch (error) {
+            this.logger.error("Error getting surge history:", error);
+            client.emit("surge-history-error", {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            });
+            return { success: false, error: error.message };
+        }
+    }
+    async handleSubscribeHospitalClicks(client, payload) {
+        try {
+            const { hospitalId } = payload;
+            if (!hospitalId) {
+                throw new websockets_1.WsException("Hospital ID is required");
+            }
+            this.logger.log(`🖱️ Client ${client.id} subscribing to hospital clicks ${hospitalId}`);
+            const roomName = `hospital:${hospitalId}:clicks`;
+            await client.join(roomName);
+            this.updateClientTracking(client.id, hospitalId);
+            const stats = await this.hospitalClicksService.getClickStatistics(hospitalId);
+            const initialData = Object.assign(Object.assign({ hospitalId }, stats), { locationValidation: {
+                    enabled: true,
+                    radiusKm: 30,
+                    surgeWindowMinutes: 30,
+                }, timestamp: new Date().toISOString(), eventId: `initial_clicks_${Date.now()}` });
+            client.emit("hospital-clicks-data", initialData);
+            client.emit("hospital-clicks-subscription-confirmed", {
+                hospitalId,
+                success: true,
+                roomName,
+                timestamp: new Date().toISOString(),
+            });
+            this.logger.log(`✅ Client ${client.id} subscribed to hospital clicks ${hospitalId}`);
+            return {
+                success: true,
+                message: `Subscribed to hospital clicks ${hospitalId}`,
+                timestamp: new Date().toISOString(),
+            };
+        }
+        catch (error) {
+            this.logger.error(`❌ Error subscribing to hospital clicks: ${error.message}`);
+            throw new websockets_1.WsException(`Failed to subscribe to clicks: ${error.message}`);
+        }
+    }
+    async resetHospitalClicks(data, client) {
+        var _a;
+        try {
+            const { hospitalId, adminToken } = data;
+            if (!hospitalId) {
+                throw new websockets_1.WsException("Hospital ID is required");
+            }
+            if (!this.verifyAdminAccess(client, adminToken)) {
+                throw new websockets_1.WsException("Admin access required for reset operation");
+            }
+            this.logger.log(`🔄 Resetting hospital clicks for ${hospitalId}`);
+            await this.hospitalClicksService.resetClicks(hospitalId);
+            const resetPayload = {
+                hospitalId,
+                clickCount: 0,
+                surgeTriggered: false,
+                message: "Hospital clicks reset successfully",
+                timestamp: new Date().toISOString(),
+                eventId: `reset_${Date.now()}`,
+                resetBy: ((_a = client.data.user) === null || _a === void 0 ? void 0 : _a.id) || "anonymous",
+            };
+            await this.emitToHospitalRooms(hospitalId, "click-count-updated", resetPayload);
+            await this.emitToHospitalRooms(hospitalId, "hospital-clicks-reset", resetPayload);
+            this.logger.log(`✅ Hospital clicks reset for ${hospitalId}`);
+            return { success: true, message: "Hospital clicks reset successfully" };
+        }
+        catch (error) {
+            this.logger.error("Error resetting hospital clicks:", error);
+            return { success: false, error: error.message };
+        }
     }
     async handleSubscribeHospitalSurges(client, payload) {
         try {
             const { hospitalId } = payload;
+            if (!hospitalId) {
+                throw new websockets_1.WsException("Hospital ID is required");
+            }
             this.logger.log(`🏥 Client ${client.id} subscribing to hospital surges ${hospitalId}`);
             const roomName = `hospital:${hospitalId}:surges`;
             await client.join(roomName);
-            if (!this.connectedClients.has(hospitalId)) {
-                this.connectedClients.set(hospitalId, new Set());
-            }
-            this.connectedClients.get(hospitalId).add(client.id);
-            if (!this.clientRooms.has(client.id)) {
-                this.clientRooms.set(client.id, new Set());
-            }
-            this.clientRooms.get(client.id).add(hospitalId);
+            this.updateClientTracking(client.id, hospitalId);
             await this.sendCurrentSurgeData(client, hospitalId);
             client.emit("hospital_subscription_confirmed", {
                 hospitalId,
                 success: true,
                 timestamp: new Date().toISOString(),
+                locationValidation: true,
             });
             this.logger.log(`✅ Client ${client.id} successfully subscribed to hospital surges ${hospitalId}`);
             return {
@@ -201,7 +400,6 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
                 success: true,
                 timestamp: new Date().toISOString(),
             });
-            this.logger.log(`✅ Client ${client.id} successfully subscribed to regional surges`);
             return {
                 success: true,
                 message: `Subscribed to regional surges within ${actualRadius}km`,
@@ -222,14 +420,7 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
             this.logger.log(`🏥 Client ${client.id} subscribing to hospital bedspace ${hospitalId}`);
             const roomName = `hospital:${hospitalId}:bedspace`;
             await client.join(roomName);
-            if (!this.connectedClients.has(hospitalId)) {
-                this.connectedClients.set(hospitalId, new Set());
-            }
-            this.connectedClients.get(hospitalId).add(client.id);
-            if (!this.clientRooms.has(client.id)) {
-                this.clientRooms.set(client.id, new Set());
-            }
-            this.clientRooms.get(client.id).add(hospitalId);
+            this.updateClientTracking(client.id, hospitalId);
             await this.sendCurrentBedspaceData(client, hospitalId);
             return {
                 success: true,
@@ -240,98 +431,6 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
         catch (error) {
             this.logger.error(`❌ Error subscribing to hospital bedspace: ${error.message}`);
             throw new websockets_1.WsException(`Failed to subscribe: ${error.message}`);
-        }
-    }
-    async handleUnsubscribeHospital(client, payload) {
-        try {
-            const { hospitalId } = payload;
-            if (!hospitalId) {
-                throw new websockets_1.WsException("Hospital ID is required");
-            }
-            this.logger.log(`🏥 Client ${client.id} unsubscribing from hospital ${hospitalId}`);
-            const roomName = `hospital:${hospitalId}:bedspace`;
-            await client.leave(roomName);
-            if (this.connectedClients.has(hospitalId)) {
-                this.connectedClients.get(hospitalId).delete(client.id);
-            }
-            if (this.clientRooms.has(client.id)) {
-                this.clientRooms.get(client.id).delete(hospitalId);
-            }
-            return {
-                success: true,
-                message: `Unsubscribed from hospital ${hospitalId}`,
-                timestamp: new Date().toISOString(),
-            };
-        }
-        catch (error) {
-            this.logger.error(`❌ Error unsubscribing from hospital: ${error.message}`);
-            throw new websockets_1.WsException(`Failed to unsubscribe: ${error.message}`);
-        }
-    }
-    async handleSubscribeChannel(client, payload) {
-        try {
-            const { channel } = payload;
-            this.logger.log(`📡 Client ${client.id} subscribing to channel ${channel}`);
-            await client.join(channel);
-            if (!this.clientChannels.has(client.id)) {
-                this.clientChannels.set(client.id, new Set());
-            }
-            this.clientChannels.get(client.id).add(channel);
-            client.emit("channel_subscription_confirmed", {
-                channel,
-                success: true,
-                timestamp: new Date().toISOString(),
-            });
-            this.logger.log(`✅ Client ${client.id} successfully subscribed to channel ${channel}`);
-            return {
-                success: true,
-                message: `Subscribed to channel ${channel}`,
-                timestamp: new Date().toISOString(),
-            };
-        }
-        catch (error) {
-            this.logger.error(`❌ Error subscribing to channel: ${error.message}`);
-            throw new websockets_1.WsException(`Failed to subscribe to channel: ${error.message}`);
-        }
-    }
-    async handleCreateSurge(client, payload) {
-        try {
-            const { hospitalId, latitude, longitude, address, emergencyType, description, metadata } = payload;
-            this.logger.log(`🚨 Creating surge via WebSocket for hospital ${hospitalId}`);
-            const newSurge = new this.surgeModel({
-                hospital: hospitalId,
-                latitude,
-                longitude,
-                address,
-                emergencyType,
-                description,
-                metadata,
-                status: "pending",
-            });
-            const savedSurge = await newSurge.save();
-            const surgeData = savedSurge.toObject();
-            const eventPayload = {
-                hospitalId,
-                surge: surgeData,
-                timestamp: new Date().toISOString(),
-                eventId: `surge_create_${Date.now()}`,
-            };
-            this.server.to(`hospital:${hospitalId}:surges`).emit("surge_created", eventPayload);
-            this.server.to(`hospital:${hospitalId}:surges`).emit("new_surge", eventPayload);
-            await this.emitToRegionalSubscribers(hospitalId, "hospital_surge_created", eventPayload);
-            await this.emitToRegionalSubscribers(hospitalId, "regional_surge_created", eventPayload);
-            this.eventEmitter.emit("surge.created", eventPayload);
-            this.logger.log(`✅ Surge created and emitted: ${savedSurge._id}`);
-            return {
-                success: true,
-                message: "Surge created successfully",
-                surge: surgeData,
-                timestamp: new Date().toISOString(),
-            };
-        }
-        catch (error) {
-            this.logger.error(`❌ Error creating surge: ${error.message}`);
-            throw new websockets_1.WsException(`Failed to create surge: ${error.message}`);
         }
     }
     async handleUpdateBedSpace(client, payload) {
@@ -368,57 +467,177 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
             throw new websockets_1.WsException(`Failed to update bedspace: ${error.message}`);
         }
     }
-    async handleEmergencyNotification(client, payload) {
+    async handleLocationValidatedSurgeTriggered(surgeData) {
         try {
-            const { hospitalId, userLocation, latitude, longitude } = payload;
-            this.logger.log(`🚨 Emergency notification for hospital ${hospitalId} from ${userLocation}`);
+            this.logger.log(`🚨 LOCATION-VALIDATED SURGE TRIGGERED for hospital ${surgeData.hospitalId}`);
+            this.logger.log(`📍 Contributing locations: ${surgeData.contributingClicks.length} unique locations`);
+            this.logger.log(`🎯 Average click location: ${surgeData.averageClickLocation.latitude}, ${surgeData.averageClickLocation.longitude}`);
+            const newSurge = new this.surgeModel({
+                hospital: surgeData.hospitalId,
+                latitude: surgeData.averageClickLocation.latitude,
+                longitude: surgeData.averageClickLocation.longitude,
+                emergencyType: "location_validated_high_demand",
+                description: `Location-validated surge triggered by ${surgeData.clickCount} clicks from ${surgeData.metadata.totalUniqueSessions} unique sessions within 30km radius`,
+                metadata: Object.assign(Object.assign({}, surgeData.metadata), { clickCount: surgeData.clickCount, triggerType: "location_validated_click_threshold", hospitalLocation: {
+                        latitude: surgeData.hospitalInfo.latitude,
+                        longitude: surgeData.hospitalInfo.longitude,
+                    }, contributingClicks: surgeData.contributingClicks, averageClickLocation: surgeData.averageClickLocation, locationValidation: {
+                        radiusKm: 30,
+                        allClicksValidated: true,
+                        minDistanceKm: Math.round(surgeData.metadata.minDistanceFromHospital / 1000),
+                        maxDistanceKm: Math.round(surgeData.metadata.maxDistanceFromHospital / 1000),
+                    } }),
+                status: "active",
+            });
+            const savedSurge = await newSurge.save();
             const eventPayload = {
-                hospitalId,
-                userLocation,
-                latitude,
-                longitude,
+                hospitalId: surgeData.hospitalId,
+                surge: savedSurge.toObject(),
+                triggerData: surgeData,
                 timestamp: new Date().toISOString(),
-                eventId: `emergency_${Date.now()}`,
+                eventId: `location_validated_surge_${Date.now()}`,
+                locationsMap: surgeData.contributingClicks.map((click) => ({
+                    sessionId: click.sessionId,
+                    coordinates: [click.longitude, click.latitude],
+                    distanceFromHospitalKm: Math.round(click.distanceFromHospital / 1000),
+                    timestamp: click.timestamp,
+                })),
+                hospitalLocation: {
+                    coordinates: [surgeData.hospitalInfo.longitude, surgeData.hospitalInfo.latitude],
+                },
+                averageClickLocation: {
+                    coordinates: [surgeData.averageClickLocation.longitude, surgeData.averageClickLocation.latitude],
+                },
             };
-            this.server.to(`hospital:${hospitalId}:bedspace`).emit("emergency_created", eventPayload);
-            this.server.to("emergency_alerts").emit("emergency_alert", eventPayload);
-            this.eventEmitter.emit("emergency.created", eventPayload);
-            this.logger.log(`✅ Emergency notification emitted for hospital ${hospitalId}`);
-            return {
-                success: true,
-                message: "Emergency notification sent successfully",
-                data: eventPayload,
-                timestamp: new Date().toISOString(),
-            };
+            await this.emitToHospitalRooms(surgeData.hospitalId, "surge_created", eventPayload);
+            await this.emitToHospitalRooms(surgeData.hospitalId, "location-validated-surge-created", eventPayload);
+            await this.emitToHospitalRooms(surgeData.hospitalId, "hospital-click-threshold-reached", eventPayload);
+            await this.emitToRegionalSubscribers(surgeData.hospitalId, "surge_created", eventPayload);
+            await this.emitToRegionalSubscribers(surgeData.hospitalId, "location-validated-surge-created", eventPayload);
+            this.server.emit("global_location_validated_surge_created", eventPayload);
+            this.eventEmitter.emit("surge.created", eventPayload);
+            this.logger.log(`✅ Location-validated surge created and broadcasted: ${savedSurge._id}`);
         }
         catch (error) {
-            this.logger.error(`❌ Error sending emergency notification: ${error.message}`);
-            throw new websockets_1.WsException(`Failed to send emergency notification: ${error.message}`);
+            this.logger.error(`❌ Error handling location-validated surge trigger: ${error.message}`, error.stack);
         }
     }
-    async handleGetInitialBedspaceData(client, payload) {
-        try {
-            const { hospitalId } = payload;
-            this.logger.log(`📊 Client ${client.id} requesting initial bedspace data for hospital ${hospitalId}`);
-            await this.sendCurrentBedspaceData(client, hospitalId);
-            return {
-                success: true,
-                message: "Initial bedspace data sent",
-                timestamp: new Date().toISOString(),
-            };
-        }
-        catch (error) {
-            this.logger.error(`❌ Error sending initial bedspace data: ${error.message}`);
-            throw new websockets_1.WsException(`Failed to send initial bedspace data: ${error.message}`);
-        }
-    }
-    handlePing(client, payload) {
+    handlePing(client) {
         this.logger.log(`🏓 Ping received from client ${client.id}`);
         return { event: "pong", data: { timestamp: new Date().toISOString() } };
     }
-    handleHeartbeatResponse(client) {
-        client.data.lastActivity = new Date();
-        return { timestamp: new Date().toISOString() };
+    handleGetConnectionStats(client) {
+        const totalClients = this.server.sockets.sockets.size;
+        const rooms = Array.from(this.server.sockets.adapter.rooms.keys());
+        const hospitalRooms = rooms.filter((room) => room.startsWith("hospital:"));
+        const regionalRooms = rooms.filter((room) => room.startsWith("region:"));
+        const stats = {
+            totalClients,
+            totalRooms: rooms.length,
+            hospitalRooms: hospitalRooms.length,
+            regionalRooms: regionalRooms.length,
+            clientRooms: this.clientRooms.get(client.id) || new Set(),
+            clientChannels: this.clientChannels.get(client.id) || new Set(),
+            sessionId: this.clientSessions.get(client.id),
+            clickValidation: {
+                locationValidation: true,
+                radiusKm: 30,
+                rateLimit: this.CLICK_RATE_LIMIT,
+                rateLimitWindowMs: this.RATE_LIMIT_WINDOW,
+            },
+            timestamp: new Date().toISOString(),
+        };
+        client.emit("connection_stats", stats);
+        return stats;
+    }
+    setupHeartbeat(client, sessionId) {
+        client.emit("heartbeat", {
+            timestamp: new Date().toISOString(),
+            message: "Initial heartbeat",
+        });
+        const interval = setInterval(() => {
+            if (client.connected) {
+                client.emit("heartbeat", {
+                    timestamp: new Date().toISOString(),
+                    clientId: client.id,
+                    sessionId,
+                });
+            }
+            else {
+                clearInterval(interval);
+            }
+        }, 30000);
+        client.data.heartbeatInterval = interval;
+    }
+    checkRateLimit(sessionId) {
+        const now = Date.now();
+        const rateData = this.clickRateLimit.get(sessionId);
+        if (!rateData) {
+            this.clickRateLimit.set(sessionId, { count: 1, resetTime: now + this.RATE_LIMIT_WINDOW });
+            return true;
+        }
+        if (now > rateData.resetTime) {
+            this.clickRateLimit.set(sessionId, { count: 1, resetTime: now + this.RATE_LIMIT_WINDOW });
+            return true;
+        }
+        if (rateData.count >= this.CLICK_RATE_LIMIT) {
+            return false;
+        }
+        rateData.count++;
+        return true;
+    }
+    updateClientTracking(clientId, hospitalId) {
+        if (!this.connectedClients.has(hospitalId)) {
+            this.connectedClients.set(hospitalId, new Set());
+        }
+        this.connectedClients.get(hospitalId).add(clientId);
+        if (!this.clientRooms.has(clientId)) {
+            this.clientRooms.set(clientId, new Set());
+        }
+        this.clientRooms.get(clientId).add(hospitalId);
+    }
+    cleanupClientSubscriptions(clientId) {
+        if (this.clientRooms.has(clientId)) {
+            const rooms = this.clientRooms.get(clientId);
+            rooms.forEach((room) => {
+                if (this.connectedClients.has(room)) {
+                    this.connectedClients.get(room).delete(clientId);
+                }
+            });
+            this.clientRooms.delete(clientId);
+        }
+        if (this.clientChannels.has(clientId)) {
+            this.clientChannels.delete(clientId);
+        }
+    }
+    async emitToHospitalRooms(hospitalId, eventName, payload) {
+        const hospitalRooms = [
+            `hospital:${hospitalId}:clicks`,
+            `hospital:${hospitalId}:surges`,
+            `hospital:${hospitalId}:bedspace`,
+        ];
+        hospitalRooms.forEach((room) => {
+            this.server.to(room).emit(eventName, payload);
+        });
+    }
+    async handleSurgeTriggered(surgeData, clickPayload) {
+        this.logger.log(`🚨 Location-validated surge triggered by click for hospital ${surgeData.hospitalId}`);
+        const surgeNotification = Object.assign(Object.assign({}, clickPayload), { surgeData, eventType: "location_validated_surge", timestamp: new Date().toISOString() });
+        await this.emitToHospitalRooms(surgeData.hospitalId, "location-validated-surge-triggered", surgeNotification);
+        await this.emitToRegionalSubscribers(surgeData.hospitalId, "surge-triggered-by-clicks", surgeNotification);
+    }
+    verifyAdminAccess(client, adminToken) {
+        return client.data.authenticated || false;
+    }
+    calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const φ1 = (lat1 * Math.PI) / 180;
+        const φ2 = (lat2 * Math.PI) / 180;
+        const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+        const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
     async sendCurrentSurgeData(client, hospitalId) {
         try {
@@ -435,15 +654,7 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
                     surges: surgeData,
                     timestamp: new Date().toISOString(),
                 });
-                client.emit("hospital_surges_initial", {
-                    hospitalId,
-                    surges: surgeData,
-                    timestamp: new Date().toISOString(),
-                });
-                this.logger.log(`📤 Sent ${surges.length} initial surges for hospital ${hospitalId} to client ${client.id}`);
-            }
-            else {
-                this.logger.log(`📭 No active surges found for hospital ${hospitalId}`);
+                this.logger.log(`📤 Sent ${surges.length} initial surges for hospital ${hospitalId}`);
             }
         }
         catch (error) {
@@ -459,15 +670,7 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
                     region: { latitude, longitude, radiusKm },
                     timestamp: new Date().toISOString(),
                 });
-                client.emit("regional_surges_initial", {
-                    surges,
-                    region: { latitude, longitude, radiusKm },
-                    timestamp: new Date().toISOString(),
-                });
-                this.logger.log(`📤 Sent ${surges.length} initial regional surges to client ${client.id}`);
-            }
-            else {
-                this.logger.log(`📭 No active surges found in region ${latitude}, ${longitude} (${radiusKm}km)`);
+                this.logger.log(`📤 Sent ${surges.length} initial regional surges`);
             }
         }
         catch (error) {
@@ -487,46 +690,15 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
             }
             const bedspaces = await this.bedspaceModel.find(query).maxTimeMS(5000).exec();
             if (bedspaces.length > 0) {
-                this.logger.log(`📤 Sending initial bedspace data for hospital ${hospitalId}: ${bedspaces.length} bedspaces found`);
                 client.emit("initial_bedspace_data", {
                     hospitalId,
                     bedspaces,
                     timestamp: new Date().toISOString(),
                 });
-                client.emit("initialBedspaceData", {
-                    hospitalId,
-                    bedspaces,
-                    timestamp: new Date().toISOString(),
-                });
-            }
-            else {
-                const hospital = await this.findHospitalByIdOrPlaceId(hospitalId);
-                if (hospital) {
-                    this.logger.log(`Hospital ${hospitalId} found but no bedspaces available`);
-                    client.emit("initial_bedspace_data", {
-                        hospitalId,
-                        bedspaces: [],
-                        message: "No bedspaces found for this hospital",
-                        timestamp: new Date().toISOString(),
-                    });
-                }
-                else {
-                    this.logger.warn(`Hospital with ID ${hospitalId} not found`);
-                    client.emit("error", {
-                        code: "HOSPITAL_NOT_FOUND",
-                        message: `Hospital with ID ${hospitalId} not found`,
-                        timestamp: new Date().toISOString(),
-                    });
-                }
             }
         }
         catch (error) {
             this.logger.error(`❌ Error sending current bedspace data: ${error.message}`);
-            client.emit("error", {
-                code: "BEDSPACE_DATA_ERROR",
-                message: "Unable to retrieve bedspace data. Please try again later.",
-                timestamp: new Date().toISOString(),
-            });
         }
     }
     async getSurgesInRegion(latitude, longitude, radiusKm) {
@@ -557,7 +729,6 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
                 return;
             }
             const regionRooms = Array.from(this.server.sockets.adapter.rooms.keys()).filter((room) => room.startsWith("region:"));
-            this.logger.log(`🌍 Checking ${regionRooms.length} regional rooms for hospital at ${hospital.latitude}, ${hospital.longitude}`);
             let emittedCount = 0;
             for (const room of regionRooms) {
                 try {
@@ -567,9 +738,6 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
                     const radius = Number.parseFloat(radiusStr) * 1000;
                     const distance = this.calculateDistance(regionLat, regionLng, hospital.latitude, hospital.longitude);
                     if (distance <= radius) {
-                        const roomClients = this.server.sockets.adapter.rooms.get(room);
-                        const clientCount = roomClients ? roomClients.size : 0;
-                        this.logger.log(`📡 Emitting ${eventName} to regional room ${room} (${clientCount} clients, distance: ${Math.round(distance)}m)`);
                         this.server.to(room).emit(eventName, payload);
                         emittedCount++;
                     }
@@ -584,158 +752,11 @@ let UnifiedHospitalGateway = class UnifiedHospitalGateway {
             this.logger.error(`❌ Error emitting to regional subscribers: ${error.message}`);
         }
     }
-    calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3;
-        const φ1 = (lat1 * Math.PI) / 180;
-        const φ2 = (lat2 * Math.PI) / 180;
-        const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-        const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
     isValidObjectId(id) {
         if (!id || typeof id !== "string") {
             return false;
         }
         return mongoose_2.Types.ObjectId.isValid(id) && /^[0-9a-fA-F]{24}$/.test(id);
-    }
-    async findHospitalByIdOrPlaceId(id) {
-        try {
-            if (!id) {
-                this.logger.error("Invalid hospital ID: null or undefined");
-                return null;
-            }
-            const isValidObjectId = id && typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id);
-            let query;
-            if (isValidObjectId) {
-                const hospitalById = await this.hospitalModel
-                    .findById(id)
-                    .select("_id hospitalName latitude longitude location placeId")
-                    .lean()
-                    .maxTimeMS(3000)
-                    .exec();
-                if (hospitalById) {
-                    return hospitalById;
-                }
-                query = { placeId: id };
-            }
-            else {
-                query = { placeId: id };
-            }
-            return await this.hospitalModel
-                .findOne(query)
-                .select("_id hospitalName latitude longitude location placeId")
-                .lean()
-                .maxTimeMS(3000)
-                .exec();
-        }
-        catch (error) {
-            this.logger.error(`Error finding hospital: ${error}`);
-            return null;
-        }
-    }
-    async handleSurgeCreated(payload) {
-        this.logger.log(`🚨 SURGE CREATED EVENT RECEIVED for hospital ${payload.hospitalId}`);
-        const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `surge_create_${Date.now()}` });
-        const roomName = `hospital:${payload.hospitalId}:surges`;
-        const room = this.server.sockets.adapter.rooms.get(roomName);
-        const clientCount = room ? room.size : 0;
-        this.logger.log(`📊 Room ${roomName} has ${clientCount} clients`);
-        this.server.to(roomName).emit("surge_created", eventPayload);
-        this.server.to(roomName).emit("new_surge", eventPayload);
-        this.server.to(roomName).emit("surge.created", eventPayload);
-        this.server.to(roomName).emit("emergency_surge", eventPayload);
-        this.server.emit("global_surge_created", eventPayload);
-        await this.emitToRegionalSubscribers(payload.hospitalId, "surge_created", eventPayload);
-        await this.emitToRegionalSubscribers(payload.hospitalId, "regional_surge_created", eventPayload);
-        await this.emitToRegionalSubscribers(payload.hospitalId, "hospital_surge_created", eventPayload);
-        this.logger.log(`✅ Surge created event emitted to ${clientCount} clients in room ${roomName}`);
-    }
-    async handleSurgeUpdated(payload) {
-        this.logger.log(`🔄 SURGE UPDATED EVENT RECEIVED for hospital ${payload.hospitalId}`);
-        const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `surge_update_${Date.now()}` });
-        const roomName = `hospital:${payload.hospitalId}:surges`;
-        const room = this.server.sockets.adapter.rooms.get(roomName);
-        const clientCount = room ? room.size : 0;
-        this.logger.log(`📊 Room ${roomName} has ${clientCount} clients`);
-        this.server.to(roomName).emit("surge_updated", eventPayload);
-        this.server.to(roomName).emit("surge.updated", eventPayload);
-        this.server.to(roomName).emit("hospital_surge_updated", eventPayload);
-        this.server.emit("global_surge_updated", eventPayload);
-        await this.emitToRegionalSubscribers(payload.hospitalId, "surge_updated", eventPayload);
-        await this.emitToRegionalSubscribers(payload.hospitalId, "hospital_surge_updated", eventPayload);
-        this.logger.log(`✅ Surge updated event emitted to ${clientCount} clients in room ${roomName}`);
-    }
-    handleBedspaceUpdated(payload) {
-        try {
-            if (!payload || !payload.hospitalId) {
-                this.logger.error("Invalid bedspace update payload");
-                return;
-            }
-            this.logger.log(`🛏️ Bedspace updated for hospital ${payload.hospitalId}`);
-            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `bedspace_update_${Date.now()}` });
-            const roomName = `hospital:${payload.hospitalId}:bedspace`;
-            this.logger.log(`Emitting bedspace_updated event to room ${roomName}`);
-            this.server.to(roomName).emit("bedspace_updated", eventPayload);
-            this.server.to(roomName).emit("bedSpaceUpdated", eventPayload);
-            this.server.to(`hospital:${payload.hospitalId}`).emit("bedspace_updated", eventPayload);
-        }
-        catch (error) {
-            this.logger.error(`Error handling bedspace update: ${error.message}`);
-        }
-    }
-    handleEmergencyCreated(payload) {
-        try {
-            if (!payload || !payload.hospitalId) {
-                this.logger.error("Invalid emergency created payload");
-                return;
-            }
-            this.logger.log(`🚨 Emergency created for hospital ${payload.hospitalId}`);
-            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `emergency_create_${Date.now()}` });
-            const roomName = `hospital:${payload.hospitalId}:bedspace`;
-            this.logger.log(`Emitting emergency_created event to room ${roomName}`);
-            this.server.to(roomName).emit("emergency_created", eventPayload);
-            this.server.to("emergency_alerts").emit("emergency_alert", eventPayload);
-        }
-        catch (error) {
-            this.logger.error(`Error handling emergency creation: ${error.message}`);
-        }
-    }
-    handleHospitalStatusChanged(payload) {
-        try {
-            if (!payload || !payload.hospitalId) {
-                this.logger.error("Invalid hospital status change payload");
-                return;
-            }
-            this.logger.log(`🏥 Hospital ${payload.hospitalId} status changed to ${payload.status}`);
-            const eventPayload = Object.assign(Object.assign({}, payload), { timestamp: new Date().toISOString(), eventId: `status_change_${Date.now()}` });
-            this.logger.log("Emitting hospital_status_changed event to all clients");
-            this.server.emit("hospital_status_changed", eventPayload);
-        }
-        catch (error) {
-            this.logger.error(`Error handling hospital status change: ${error.message}`);
-        }
-    }
-    handleGetConnectionStats(client) {
-        const totalClients = this.server.sockets.sockets.size;
-        const rooms = Array.from(this.server.sockets.adapter.rooms.keys());
-        const hospitalRooms = rooms.filter((room) => room.startsWith("hospital:"));
-        const regionalRooms = rooms.filter((room) => room.startsWith("region:"));
-        const generalChannels = rooms.filter((room) => !room.startsWith("hospital:") && !room.startsWith("region:"));
-        const stats = {
-            totalClients,
-            totalRooms: rooms.length,
-            hospitalRooms: hospitalRooms.length,
-            regionalRooms: regionalRooms.length,
-            generalChannels: generalChannels.length,
-            clientRooms: this.clientRooms.get(client.id) || new Set(),
-            clientChannels: this.clientChannels.get(client.id) || new Set(),
-            timestamp: new Date().toISOString(),
-        };
-        this.logger.log(`📊 Connection stats requested by ${client.id}:`, stats);
-        client.emit("connection_stats", stats);
-        return stats;
     }
 };
 __decorate([
@@ -743,103 +764,93 @@ __decorate([
     __metadata("design:type", Function)
 ], UnifiedHospitalGateway.prototype, "server", void 0);
 __decorate([
+    (0, websockets_1.SubscribeMessage)("hospital-click"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Function]),
+    __metadata("design:returntype", Promise)
+], UnifiedHospitalGateway.prototype, "handleHospitalClick", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("get-hospital-click-stats"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Function]),
+    __metadata("design:returntype", Promise)
+], UnifiedHospitalGateway.prototype, "getHospitalClickStats", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("get-surge-history"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Function]),
+    __metadata("design:returntype", Promise)
+], UnifiedHospitalGateway.prototype, "getSurgeHistory", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("subscribe_hospital_clicks"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Function, Object]),
+    __metadata("design:returntype", Promise)
+], UnifiedHospitalGateway.prototype, "handleSubscribeHospitalClicks", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("reset-hospital-clicks"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Function]),
+    __metadata("design:returntype", Promise)
+], UnifiedHospitalGateway.prototype, "resetHospitalClicks", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)("subscribe_hospital_surges"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function, Object]),
     __metadata("design:returntype", Promise)
 ], UnifiedHospitalGateway.prototype, "handleSubscribeHospitalSurges", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)("subscribe_regional_surges"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function, Object]),
     __metadata("design:returntype", Promise)
 ], UnifiedHospitalGateway.prototype, "handleSubscribeRegionalSurges", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)("subscribe_hospital"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function, Object]),
     __metadata("design:returntype", Promise)
 ], UnifiedHospitalGateway.prototype, "handleSubscribeHospital", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)("unsubscribe_hospital"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleUnsubscribeHospital", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("subscribe_channel"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleSubscribeChannel", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("create_surge"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleCreateSurge", null);
-__decorate([
     (0, websockets_1.SubscribeMessage)("updateBedSpace"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function, Object]),
     __metadata("design:returntype", Promise)
 ], UnifiedHospitalGateway.prototype, "handleUpdateBedSpace", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)("emergencyNotification"),
+    (0, event_emitter_1.OnEvent)("hospital.surge.triggered"),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleEmergencyNotification", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("get_initial_bedspace_data"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleGetInitialBedspaceData", null);
+], UnifiedHospitalGateway.prototype, "handleLocationValidatedSurgeTriggered", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)("ping"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function, Object]),
-    __metadata("design:returntype", void 0)
-], UnifiedHospitalGateway.prototype, "handlePing", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("heartbeat_response"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function]),
     __metadata("design:returntype", void 0)
-], UnifiedHospitalGateway.prototype, "handleHeartbeatResponse", null);
-__decorate([
-    (0, event_emitter_1.OnEvent)("surge.created"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleSurgeCreated", null);
-__decorate([
-    (0, event_emitter_1.OnEvent)("surge.updated"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UnifiedHospitalGateway.prototype, "handleSurgeUpdated", null);
-__decorate([
-    (0, event_emitter_1.OnEvent)("bedspace.updated"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], UnifiedHospitalGateway.prototype, "handleBedspaceUpdated", null);
-__decorate([
-    (0, event_emitter_1.OnEvent)("emergency.created"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], UnifiedHospitalGateway.prototype, "handleEmergencyCreated", null);
-__decorate([
-    (0, event_emitter_1.OnEvent)("hospital.status_changed"),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], UnifiedHospitalGateway.prototype, "handleHospitalStatusChanged", null);
+], UnifiedHospitalGateway.prototype, "handlePing", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)("get_connection_stats"),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function]),
     __metadata("design:returntype", void 0)
@@ -856,11 +867,17 @@ UnifiedHospitalGateway = __decorate([
         pingTimeout: 5000,
     }),
     (0, common_1.Injectable)(),
-    __param(2, (0, mongoose_1.InjectModel)(hospital_schema_1.Hospital.name)),
-    __param(3, (0, mongoose_1.InjectModel)(bedspace_schema_1.Bedspace.name)),
-    __param(4, (0, mongoose_1.InjectModel)(surge_schema_1.Surge.name)),
+    __param(3, (0, mongoose_1.InjectModel)(hospital_schema_1.Hospital.name)),
+    __param(4, (0, mongoose_1.InjectModel)(bedspace_schema_1.Bedspace.name)),
+    __param(5, (0, mongoose_1.InjectModel)(surge_schema_1.Surge.name)),
+    __param(6, (0, mongoose_1.InjectModel)(hospital_click_schema_1.HospitalClick.name)),
     __metadata("design:paramtypes", [event_emitter_1.EventEmitter2,
-        jwt_1.JwtService, Function, Function, Function])
+        jwt_1.JwtService,
+        hospital_clicks_service_1.HospitalClicksService,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model])
 ], UnifiedHospitalGateway);
 exports.UnifiedHospitalGateway = UnifiedHospitalGateway;
 //# sourceMappingURL=unified-hospital.gateway.js.map
