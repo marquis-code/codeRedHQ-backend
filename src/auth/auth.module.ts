@@ -11,11 +11,13 @@ import { LocalStrategy } from './localStrategy';
 import { Hospital, HospitalSchema } from '../hospital/schemas/hospital.schema';
 import { UserModule } from '../user/user.module';
 import { HospitalModule } from '../hospital/hospital.module';
+import { Staff, StaffSchema } from '../staffing/schemas/staff.schema';
 
 @Module({
   imports: [
     forwardRef(() => HospitalModule), // Use forwardRef to avoid circular dependency
-    PassportModule,
+    // PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -24,6 +26,9 @@ import { HospitalModule } from '../hospital/hospital.module';
         signOptions: { expiresIn: '1d' },
       }),
     }),
+      MongooseModule.forFeature([
+      { name: Staff.name, schema: StaffSchema },
+    ]),
     MongooseModule.forFeature([
       { name: Hospital.name, schema: HospitalSchema }
     ]),

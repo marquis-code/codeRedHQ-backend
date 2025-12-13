@@ -19,13 +19,14 @@ const localStrategy_1 = require("./localStrategy");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const user_module_1 = require("../user/user.module");
 const hospital_module_1 = require("../hospital/hospital.module");
+const staff_schema_1 = require("../staffing/schemas/staff.schema");
 let AuthModule = class AuthModule {
 };
 AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             (0, common_1.forwardRef)(() => hospital_module_1.HospitalModule),
-            passport_1.PassportModule,
+            passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
@@ -34,6 +35,9 @@ AuthModule = __decorate([
                     signOptions: { expiresIn: '1d' },
                 }),
             }),
+            mongoose_1.MongooseModule.forFeature([
+                { name: staff_schema_1.Staff.name, schema: staff_schema_1.StaffSchema },
+            ]),
             mongoose_1.MongooseModule.forFeature([
                 { name: hospital_schema_1.Hospital.name, schema: hospital_schema_1.HospitalSchema }
             ]),

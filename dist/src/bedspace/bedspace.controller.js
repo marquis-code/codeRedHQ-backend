@@ -30,6 +30,47 @@ let BedspaceController = class BedspaceController {
     async findOne(id) {
         return this.bedspaceService.findOne(id);
     }
+    async updateByStaff(id, body, req, ip, userAgent) {
+        var _a;
+        const staffId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.sub;
+        const location = req.body.location
+            ? { latitude: req.body.location.latitude, longitude: req.body.location.longitude }
+            : undefined;
+        return this.bedspaceService.updateByStaff(id, staffId, {
+            availableBeds: body.availableBeds,
+            occupiedBeds: body.occupiedBeds,
+            notes: body.notes,
+        }, {
+            ipAddress: ip,
+            userAgent,
+            location,
+        });
+    }
+    async admitPatient(id, body, req, ip, userAgent) {
+        var _a;
+        const staffId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.sub;
+        const location = req.body.location;
+        return this.bedspaceService.admitPatient(id, staffId, {
+            ipAddress: ip,
+            userAgent,
+            location,
+            notes: body.notes,
+        });
+    }
+    async dischargePatient(id, body, req, ip, userAgent) {
+        var _a;
+        const staffId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.sub;
+        const location = req.body.location;
+        return this.bedspaceService.dischargePatient(id, staffId, {
+            ipAddress: ip,
+            userAgent,
+            location,
+            notes: body.notes,
+        });
+    }
+    async getBedspaceHistory(id) {
+        return this.bedspaceService.getBedspaceHistory(id);
+    }
     async update(id, updateBedspaceDto) {
         return this.bedspaceService.update(id, updateBedspaceDto);
     }
@@ -66,6 +107,49 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], BedspaceController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Put)(':id/staff-update'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Ip)()),
+    __param(4, (0, common_1.Headers)('user-agent')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object, String, String]),
+    __metadata("design:returntype", Promise)
+], BedspaceController.prototype, "updateByStaff", null);
+__decorate([
+    (0, common_1.Post)(':id/admit'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Ip)()),
+    __param(4, (0, common_1.Headers)('user-agent')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object, String, String]),
+    __metadata("design:returntype", Promise)
+], BedspaceController.prototype, "admitPatient", null);
+__decorate([
+    (0, common_1.Post)(':id/discharge'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Ip)()),
+    __param(4, (0, common_1.Headers)('user-agent')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object, String, String]),
+    __metadata("design:returntype", Promise)
+], BedspaceController.prototype, "dischargePatient", null);
+__decorate([
+    (0, common_1.Get)(':id/history'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BedspaceController.prototype, "getBedspaceHistory", null);
 __decorate([
     (0, common_1.Put)(':id'),
     __param(0, (0, common_1.Param)('id')),

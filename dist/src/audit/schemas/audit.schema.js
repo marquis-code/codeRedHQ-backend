@@ -19,25 +19,58 @@ __decorate([
     __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
 ], AuditLog.prototype, "hospital", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Staff', required: true }),
+    __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
+], AuditLog.prototype, "staff", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        required: true,
+        enum: ['bedspace_update', 'bedspace_create', 'bedspace_delete', 'emr_create', 'emr_update', 'emr_view', 'staff_create', 'staff_update', 'clock_in', 'clock_out']
+    }),
     __metadata("design:type", String)
 ], AuditLog.prototype, "action", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
-], AuditLog.prototype, "module", void 0);
+], AuditLog.prototype, "resourceType", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.Mixed }),
-    __metadata("design:type", Object)
+    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId }),
+    __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
 ], AuditLog.prototype, "resourceId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.Mixed }),
+    (0, mongoose_1.Prop)({ type: Object }),
     __metadata("design:type", Object)
 ], AuditLog.prototype, "previousState", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.Mixed }),
+    (0, mongoose_1.Prop)({ type: Object }),
     __metadata("design:type", Object)
 ], AuditLog.prototype, "newState", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Object }),
+    __metadata("design:type", Object)
+], AuditLog.prototype, "metadata", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], AuditLog.prototype, "notes", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number],
+            default: [0, 0]
+        }
+    }),
+    __metadata("design:type", Object)
+], AuditLog.prototype, "location", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 'success' }),
+    __metadata("design:type", String)
+], AuditLog.prototype, "status", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
@@ -46,15 +79,13 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], AuditLog.prototype, "userAgent", void 0);
-__decorate([
-    (0, mongoose_1.Prop)(),
-    __metadata("design:type", String)
-], AuditLog.prototype, "performedBy", void 0);
 AuditLog = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], AuditLog);
 exports.AuditLog = AuditLog;
 exports.AuditLogSchema = mongoose_1.SchemaFactory.createForClass(AuditLog);
 exports.AuditLogSchema.index({ hospital: 1, createdAt: -1 });
-exports.AuditLogSchema.index({ module: 1, action: 1 });
+exports.AuditLogSchema.index({ staff: 1, createdAt: -1 });
+exports.AuditLogSchema.index({ resourceType: 1, resourceId: 1 });
+exports.AuditLogSchema.index({ action: 1, createdAt: -1 });
 //# sourceMappingURL=audit.schema.js.map

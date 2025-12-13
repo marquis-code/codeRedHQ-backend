@@ -21,148 +21,118 @@ let AuditService = class AuditService {
     constructor(auditLogModel) {
         this.auditLogModel = auditLogModel;
     }
-    async create(createAuditLogDto) {
-        const createdAuditLog = new this.auditLogModel(createAuditLogDto);
-        return createdAuditLog.save();
+    async createLog(logData) {
+        const auditLog = new this.auditLogModel(Object.assign(Object.assign({}, logData), { location: logData.location ? {
+                type: 'Point',
+                coordinates: [logData.location.longitude, logData.location.latitude],
+            } : undefined }));
+        return auditLog.save();
     }
-    async findAll(hospitalId, query = {}) {
-        const { page = 1, limit = 20, module, action, startDate, endDate, resourceId } = query;
-        const filter = { hospital: new mongoose_2.Types.ObjectId(hospitalId) };
-        if (module) {
-            filter.module = module;
+    async getHospitalLogs(hospitalId, options) {
+        const query = { hospital: new mongoose_2.Types.ObjectId(hospitalId) };
+        if ((options === null || options === void 0 ? void 0 : options.startDate) || (options === null || options === void 0 ? void 0 : options.endDate)) {
+            query.createdAt = {};
+            if (options.startDate)
+                query.createdAt.$gte = options.startDate;
+            if (options.endDate)
+                query.createdAt.$lte = options.endDate;
         }
-        if (action) {
-            filter.action = action;
+        if (options === null || options === void 0 ? void 0 : options.action) {
+            query.action = options.action;
         }
-        if (resourceId) {
-            filter.resourceId = resourceId;
+        if (options === null || options === void 0 ? void 0 : options.resourceType) {
+            query.resourceType = options.resourceType;
         }
-        if (startDate || endDate) {
-            filter.createdAt = {};
-            if (startDate) {
-                filter.createdAt.$gte = new Date(startDate);
-            }
-            if (endDate) {
-                filter.createdAt.$lte = new Date(endDate);
-            }
+        if (options === null || options === void 0 ? void 0 : options.staffId) {
+            query.staff = new mongoose_2.Types.ObjectId(options.staffId);
         }
-        const skip = (page - 1) * limit;
-        const [data, total] = await Promise.all([
+        const limit = (options === null || options === void 0 ? void 0 : options.limit) || 50;
+        const skip = (options === null || options === void 0 ? void 0 : options.skip) || 0;
+        const [logs, total] = await Promise.all([
             this.auditLogModel
-                .find(filter)
+                .find(query)
+                .populate('staff', 'name email position department')
                 .sort({ createdAt: -1 })
-                .skip(skip)
                 .limit(limit)
+                .skip(skip)
                 .exec(),
-            this.auditLogModel.countDocuments(filter).exec(),
+            this.auditLogModel.countDocuments(query).exec(),
         ]);
-        return {
-            data,
-            total,
-            page: Number(page),
-            limit: Number(limit),
-        };
+        return { logs, total };
     }
-    async findOne(id) {
-        return this.auditLogModel.findById(id).exec();
+    async getResourceHistory(resourceType, resourceId) {
+        return this.auditLogModel
+            .find({
+            resourceType,
+            resourceId: new mongoose_2.Types.ObjectId(resourceId),
+        })
+            .populate('staff', 'name email position department')
+            .sort({ createdAt: -1 })
+            .exec();
     }
-    async logActivity(hospitalId, module, action, resourceId, previousState = null, newState = null, req) {
-        var _a;
-        const auditLog = {
-            hospital: new mongoose_2.Types.ObjectId(hospitalId),
-            module,
-            action,
-            resourceId,
-            previousState,
-            newState,
-            ipAddress: req === null || req === void 0 ? void 0 : req.ip,
-            userAgent: req === null || req === void 0 ? void 0 : req.headers['user-agent'],
-            performedBy: ((_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a['hospitalName']) || 'System',
-        };
-        await this.create(auditLog);
+    async getStaffActivity(staffId, startDate, endDate) {
+        const query = { staff: new mongoose_2.Types.ObjectId(staffId) };
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate)
+                query.createdAt.$gte = startDate;
+            if (endDate)
+                query.createdAt.$lte = endDate;
+        }
+        return this.auditLogModel
+            .find(query)
+            .populate('hospital', 'hospitalName')
+            .sort({ createdAt: -1 })
+            .exec();
     }
-    async getActivitySummary(hospitalId, days = 30) {
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
-        const activityByModule = await this.auditLogModel.aggregate([
+    async getActivitySummary(hospitalId, startDate, endDate) {
+        const result = await this.auditLogModel.aggregate([
             {
                 $match: {
                     hospital: new mongoose_2.Types.ObjectId(hospitalId),
-                    createdAt: { $gte: startDate },
-                },
-            },
-            {
-                $group: {
-                    _id: { module: '$module', action: '$action' },
-                    count: { $sum: 1 },
-                },
-            },
-            {
-                $group: {
-                    _id: '$_id.module',
-                    actions: {
-                        $push: {
-                            action: '$_id.action',
-                            count: '$count',
-                        },
-                    },
-                    totalCount: { $sum: '$count' },
-                },
-            },
-            {
-                $project: {
-                    module: '$_id',
-                    actions: 1,
-                    totalCount: 1,
-                    _id: 0,
-                },
-            },
-            {
-                $sort: { totalCount: -1 },
-            },
-        ]).exec();
-        const activityByDay = await this.auditLogModel.aggregate([
-            {
-                $match: {
-                    hospital: new mongoose_2.Types.ObjectId(hospitalId),
-                    createdAt: { $gte: startDate },
+                    createdAt: { $gte: startDate, $lte: endDate },
                 },
             },
             {
                 $group: {
                     _id: {
-                        year: { $year: '$createdAt' },
-                        month: { $month: '$createdAt' },
-                        day: { $dayOfMonth: '$createdAt' },
+                        action: '$action',
+                        staff: '$staff',
                     },
                     count: { $sum: 1 },
+                    lastActivity: { $max: '$createdAt' },
                 },
             },
             {
-                $project: {
-                    date: {
-                        $dateFromParts: {
-                            year: '$_id.year',
-                            month: '$_id.month',
-                            day: '$_id.day',
+                $lookup: {
+                    from: 'staffs',
+                    localField: '_id.staff',
+                    foreignField: '_id',
+                    as: 'staffInfo',
+                },
+            },
+            {
+                $unwind: '$staffInfo',
+            },
+            {
+                $group: {
+                    _id: '$_id.action',
+                    totalCount: { $sum: '$count' },
+                    staffActivities: {
+                        $push: {
+                            staffId: '$_id.staff',
+                            staffName: '$staffInfo.name',
+                            count: '$count',
+                            lastActivity: '$lastActivity',
                         },
                     },
-                    count: 1,
-                    _id: 0,
                 },
             },
             {
-                $sort: { date: 1 },
+                $sort: { totalCount: -1 },
             },
-        ]).exec();
-        return {
-            activityByModule,
-            activityByDay,
-            totalActivities: await this.auditLogModel.countDocuments({
-                hospital: new mongoose_2.Types.ObjectId(hospitalId),
-                createdAt: { $gte: startDate },
-            }).exec(),
-        };
+        ]);
+        return result;
     }
 };
 AuditService = __decorate([

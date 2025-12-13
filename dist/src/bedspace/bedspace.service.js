@@ -18,10 +18,14 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
 const bedspace_schema_1 = require("./schemas/bedspace.schema");
+const staff_schema_1 = require("../staffing/schemas/staff.schema");
+const audit_service_1 = require("../audit/audit.service");
 let BedspaceService = class BedspaceService {
-    constructor(bedspaceModel, eventEmitter) {
+    constructor(bedspaceModel, staffModel, eventEmitter, auditLogService) {
         this.bedspaceModel = bedspaceModel;
+        this.staffModel = staffModel;
         this.eventEmitter = eventEmitter;
+        this.auditLogService = auditLogService;
     }
     async create(createBedspaceDto) {
         if (createBedspaceDto.availableBeds + createBedspaceDto.occupiedBeds !== createBedspaceDto.totalBeds) {
@@ -45,6 +49,114 @@ let BedspaceService = class BedspaceService {
             throw new common_1.NotFoundException(`Bedspace with ID ${id} not found`);
         }
         return bedspace;
+    }
+    async updateByStaff(bedspaceId, staffId, updateData, metadata) {
+        var _a, _b;
+        const staff = await this.staffModel.findById(staffId);
+        if (!staff) {
+            throw new common_1.NotFoundException('Staff not found');
+        }
+        if (!staff.isVerified || !staff.isActive) {
+            throw new common_1.ForbiddenException('Your account is not authorized to update bedspace');
+        }
+        if (!staff.permissions.includes('manage_bedspace')) {
+            throw new common_1.ForbiddenException('You do not have permission to manage bedspace');
+        }
+        const bedspace = await this.findOne(bedspaceId);
+        if (bedspace.hospital.toString() !== staff.hospital.toString()) {
+            throw new common_1.ForbiddenException('You can only update bedspaces in your own hospital');
+        }
+        const previousState = {
+            availableBeds: bedspace.availableBeds,
+            occupiedBeds: bedspace.occupiedBeds,
+            totalBeds: bedspace.totalBeds,
+            status: bedspace.status,
+        };
+        let newAvailable = (_a = updateData.availableBeds) !== null && _a !== void 0 ? _a : bedspace.availableBeds;
+        let newOccupied = (_b = updateData.occupiedBeds) !== null && _b !== void 0 ? _b : bedspace.occupiedBeds;
+        if (newAvailable + newOccupied !== bedspace.totalBeds) {
+            throw new common_1.BadRequestException(`Invalid update: Available (${newAvailable}) + Occupied (${newOccupied}) must equal Total (${bedspace.totalBeds})`);
+        }
+        if (newAvailable < 0 || newOccupied < 0) {
+            throw new common_1.BadRequestException('Bed counts cannot be negative');
+        }
+        bedspace.availableBeds = newAvailable;
+        bedspace.occupiedBeds = newOccupied;
+        const updatedBedspace = await bedspace.save();
+        await this.auditLogService.createLog({
+            hospital: bedspace.hospital,
+            staff: staff._id,
+            action: 'bedspace_update',
+            resourceType: 'Bedspace',
+            resourceId: bedspace._id,
+            previousState,
+            newState: {
+                availableBeds: updatedBedspace.availableBeds,
+                occupiedBeds: updatedBedspace.occupiedBeds,
+                totalBeds: updatedBedspace.totalBeds,
+                status: updatedBedspace.status,
+            },
+            metadata: Object.assign(Object.assign({}, metadata), { staffName: staff.name, staffPosition: staff.position, department: staff.department }),
+            notes: updateData.notes,
+            location: metadata === null || metadata === void 0 ? void 0 : metadata.location,
+            status: 'success',
+            ipAddress: metadata === null || metadata === void 0 ? void 0 : metadata.ipAddress,
+            userAgent: metadata === null || metadata === void 0 ? void 0 : metadata.userAgent,
+        });
+        this.eventEmitter.emit('bedspace.updated', {
+            hospitalId: updatedBedspace.hospital,
+            bedspace: updatedBedspace,
+            updatedBy: staff._id,
+        });
+        return updatedBedspace;
+    }
+    async admitPatient(bedspaceId, staffId, metadata) {
+        const bedspace = await this.findOne(bedspaceId);
+        if (bedspace.availableBeds <= 0) {
+            throw new common_1.BadRequestException('No available beds for admission');
+        }
+        return this.updateByStaff(bedspaceId, staffId, {
+            availableBeds: bedspace.availableBeds - 1,
+            occupiedBeds: bedspace.occupiedBeds + 1,
+            notes: (metadata === null || metadata === void 0 ? void 0 : metadata.notes) || 'Patient admitted',
+        }, metadata);
+    }
+    async dischargePatient(bedspaceId, staffId, metadata) {
+        const bedspace = await this.findOne(bedspaceId);
+        if (bedspace.occupiedBeds <= 0) {
+            throw new common_1.BadRequestException('No occupied beds to discharge');
+        }
+        return this.updateByStaff(bedspaceId, staffId, {
+            availableBeds: bedspace.availableBeds + 1,
+            occupiedBeds: bedspace.occupiedBeds - 1,
+            notes: (metadata === null || metadata === void 0 ? void 0 : metadata.notes) || 'Patient discharged',
+        }, metadata);
+    }
+    async getBedspaceHistory(bedspaceId) {
+        const bedspace = await this.findOne(bedspaceId);
+        const auditLogs = await this.auditLogService.getResourceHistory('Bedspace', bedspaceId);
+        return {
+            bedspace: {
+                id: bedspace._id,
+                departmentName: bedspace.departmentName,
+                location: bedspace.location,
+                currentState: {
+                    totalBeds: bedspace.totalBeds,
+                    availableBeds: bedspace.availableBeds,
+                    occupiedBeds: bedspace.occupiedBeds,
+                    status: bedspace.status,
+                },
+            },
+            history: auditLogs.map(log => ({
+                timestamp: log.createdAt,
+                staff: log.staff,
+                action: log.action,
+                previousState: log.previousState,
+                newState: log.newState,
+                notes: log.notes,
+                location: log.location,
+            })),
+        };
     }
     async update(id, updateBedspaceDto) {
         const bedspace = await this.findOne(id);
@@ -159,8 +271,11 @@ let BedspaceService = class BedspaceService {
 BedspaceService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(bedspace_schema_1.Bedspace.name)),
+    __param(1, (0, mongoose_1.InjectModel)(staff_schema_1.Staff.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        event_emitter_1.EventEmitter2])
+        mongoose_2.Model,
+        event_emitter_1.EventEmitter2,
+        audit_service_1.AuditService])
 ], BedspaceService);
 exports.BedspaceService = BedspaceService;
 //# sourceMappingURL=bedspace.service.js.map

@@ -4,11 +4,14 @@ import { Reflector } from '@nestjs/core';
 import { AuditService } from '../audit.service';
 export declare const AUDIT_KEY = "audit";
 export interface AuditOptions {
-    module: string;
     action: string;
+    resourceType: string;
     getResourceId?: (request: any, response: any) => any;
     getPreviousState?: (request: any) => any;
     getNewState?: (request: any, response: any) => any;
+    includeRequestBody?: boolean;
+    includeResponseData?: boolean;
+    notes?: string;
 }
 export declare const Audit: (options: AuditOptions) => (target: any, key: string, descriptor: PropertyDescriptor) => PropertyDescriptor;
 export declare class AuditInterceptor implements NestInterceptor {

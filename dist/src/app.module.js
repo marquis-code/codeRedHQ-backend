@@ -25,6 +25,8 @@ const surge_module_1 = require("./surge/surge.module");
 const database_module_1 = require("./database/database.module");
 const migrations_module_1 = require("./migrations/migrations.module");
 const hospital_clicks_module_1 = require("./hospital-click/hospital-clicks.module");
+const emr_module_1 = require("./emr/emr.module");
+const surge_prediction_module_1 = require("./surge-prediction/surge-prediction.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -61,7 +63,9 @@ AppModule = __decorate([
             user_module_1.UserModule,
             surge_module_1.SurgeModule,
             migrations_module_1.MigrationsModule,
-            hospital_clicks_module_1.HospitalClicksModule
+            hospital_clicks_module_1.HospitalClicksModule,
+            emr_module_1.EMRModule,
+            surge_prediction_module_1.SurgePredictionModule,
         ],
     })
 ], AppModule);

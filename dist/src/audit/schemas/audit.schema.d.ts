@@ -26,14 +26,23 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 export type AuditLogDocument = AuditLog & Document;
 export declare class AuditLog {
     hospital: MongooseSchema.Types.ObjectId;
+    staff: MongooseSchema.Types.ObjectId;
     action: string;
-    module: string;
-    resourceId: any;
-    previousState: any;
-    newState: any;
+    resourceType: string;
+    resourceId: MongooseSchema.Types.ObjectId;
+    previousState: Record<string, any>;
+    newState: Record<string, any>;
+    metadata: Record<string, any>;
+    notes: string;
+    location: {
+        type: string;
+        coordinates: number[];
+    };
+    status: string;
     ipAddress: string;
     userAgent: string;
-    performedBy: string;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 export declare const AuditLogSchema: MongooseSchema<Document<AuditLog, any, any>, import("mongoose").Model<Document<AuditLog, any, any>, any, any, any, Document<unknown, any, Document<AuditLog, any, any>> & Document<AuditLog, any, any> & Required<{
     _id: AuditLog;

@@ -11,32 +11,48 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var JwtStrategy_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.JwtStrategy = void 0;
-const passport_jwt_1 = require("passport-jwt");
-const passport_1 = require("@nestjs/passport");
 const common_1 = require("@nestjs/common");
-const user_service_1 = require("../user/user.service");
-let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
-    constructor(UserService) {
+const passport_1 = require("@nestjs/passport");
+const passport_jwt_1 = require("passport-jwt");
+const config_1 = require("@nestjs/config");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
+const staff_schema_1 = require("../staffing/schemas/staff.schema");
+let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
+    constructor(staffModel, configService) {
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKey: 'JWT_SECRET',
+            secretOrKey: configService.get('JWT_SECRET'),
         });
-        this.UserService = UserService;
-        this.logger = new common_1.Logger(JwtStrategy_1.name);
+        this.staffModel = staffModel;
+        this.configService = configService;
     }
     async validate(payload) {
-        this.logger.log('Validate passport:', payload);
-        return await this.UserService.findOne({ email: payload.email });
+        if (payload.type === 'staff') {
+            const staff = await this.staffModel.findById(payload.sub);
+            if (!staff || !staff.isActive || !staff.isVerified) {
+                throw new common_1.UnauthorizedException('Staff account is not active or verified');
+            }
+            return {
+                sub: payload.sub,
+                email: payload.email,
+                hospitalId: payload.hospitalId,
+                role: payload.role,
+                permissions: staff.permissions,
+                type: 'staff',
+            };
+        }
+        return payload;
     }
 };
-JwtStrategy = JwtStrategy_1 = __decorate([
+JwtStrategy = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => user_service_1.UserService))),
-    __metadata("design:paramtypes", [user_service_1.UserService])
+    __param(0, (0, mongoose_1.InjectModel)(staff_schema_1.Staff.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        config_1.ConfigService])
 ], JwtStrategy);
 exports.JwtStrategy = JwtStrategy;
 //# sourceMappingURL=jwtStratergy.js.map

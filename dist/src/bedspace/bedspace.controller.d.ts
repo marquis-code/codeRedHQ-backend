@@ -8,6 +8,18 @@ export declare class BedspaceController {
     create(createBedspaceDto: CreateBedspaceDto): Promise<BedspaceDocument>;
     findAll(hospitalId?: string): Promise<BedspaceDocument[]>;
     findOne(id: string): Promise<BedspaceDocument>;
+    updateByStaff(id: string, body: {
+        availableBeds?: number;
+        occupiedBeds?: number;
+        notes?: string;
+    }, req: any, ip: string, userAgent: string): Promise<BedspaceDocument>;
+    admitPatient(id: string, body: {
+        notes?: string;
+    }, req: any, ip: string, userAgent: string): Promise<BedspaceDocument>;
+    dischargePatient(id: string, body: {
+        notes?: string;
+    }, req: any, ip: string, userAgent: string): Promise<BedspaceDocument>;
+    getBedspaceHistory(id: string): Promise<any>;
     update(id: string, updateBedspaceDto: UpdateBedspaceDto): Promise<BedspaceDocument>;
     remove(id: string): Promise<void>;
     getHospitalSummary(hospitalId: string): Promise<any>;

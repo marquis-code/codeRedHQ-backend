@@ -12,27 +12,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateAuditLogDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
-const mongoose_1 = require("mongoose");
 class CreateAuditLogDto {
 }
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Hospital ID' }),
     (0, class_validator_1.IsMongoId)(),
     (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", mongoose_1.Types.ObjectId)
+    __metadata("design:type", Object)
 ], CreateAuditLogDto.prototype, "hospital", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Module name (e.g., bedspace, staff, emergency)' }),
-    (0, class_validator_1.IsString)(),
+    (0, swagger_1.ApiProperty)({ description: 'Staff ID' }),
+    (0, class_validator_1.IsMongoId)(),
     (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], CreateAuditLogDto.prototype, "module", void 0);
+    __metadata("design:type", Object)
+], CreateAuditLogDto.prototype, "staff", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Action performed (e.g., create, update, delete)' }),
+    (0, swagger_1.ApiProperty)({ description: 'Action performed' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateAuditLogDto.prototype, "action", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Resource type (e.g., Bedspace, Patient, MedicalVisit)' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateAuditLogDto.prototype, "resourceType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'ID of the affected resource' }),
     (0, class_validator_1.IsOptional)(),
@@ -51,6 +56,29 @@ __decorate([
     __metadata("design:type", Object)
 ], CreateAuditLogDto.prototype, "newState", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Additional metadata' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)(),
+    __metadata("design:type", Object)
+], CreateAuditLogDto.prototype, "metadata", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Notes about the action' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateAuditLogDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Location coordinates' }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateAuditLogDto.prototype, "location", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Status of the action' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateAuditLogDto.prototype, "status", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ description: 'IP address of the user' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
@@ -62,11 +90,5 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateAuditLogDto.prototype, "userAgent", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ description: 'User who performed the action' }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateAuditLogDto.prototype, "performedBy", void 0);
 exports.CreateAuditLogDto = CreateAuditLogDto;
 //# sourceMappingURL=create-audit-log.dto.js.map

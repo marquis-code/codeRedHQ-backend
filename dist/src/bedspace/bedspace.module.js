@@ -10,10 +10,12 @@ exports.BedspaceModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
+const audit_module_1 = require("../audit/audit.module");
 const bedspace_controller_1 = require("./bedspace.controller");
 const bedspace_service_1 = require("./bedspace.service");
 const bedspace_schema_1 = require("./schemas/bedspace.schema");
 const hospital_module_1 = require("../hospital/hospital.module");
+const staff_schema_1 = require("../staffing/schemas/staff.schema");
 let BedspaceModule = class BedspaceModule {
 };
 BedspaceModule = __decorate([
@@ -21,13 +23,15 @@ BedspaceModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: bedspace_schema_1.Bedspace.name, schema: bedspace_schema_1.BedspaceSchema },
+                { name: staff_schema_1.Staff.name, schema: staff_schema_1.StaffSchema },
             ]),
             hospital_module_1.HospitalModule,
             event_emitter_1.EventEmitterModule.forRoot(),
+            audit_module_1.AuditModule,
         ],
         controllers: [bedspace_controller_1.BedspaceController],
         providers: [bedspace_service_1.BedspaceService],
-        exports: [bedspace_service_1.BedspaceService],
+        exports: [bedspace_service_1.BedspaceService, mongoose_1.MongooseModule],
     })
 ], BedspaceModule);
 exports.BedspaceModule = BedspaceModule;

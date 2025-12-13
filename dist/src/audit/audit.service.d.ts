@@ -1,25 +1,40 @@
-import { Model } from 'mongoose';
-import { Request } from 'express';
-import { AuditLog, AuditLogDocument } from './schemas/audit.schema';
-import { CreateAuditLogDto } from './dto/create-audit-log.dto';
-interface AuthenticatedRequest extends Request {
-    user?: {
-        hospitalName?: string;
-        [key: string]: any;
+import { Model, Types } from 'mongoose';
+import { AuditLogDocument } from './schemas/audit.schema';
+export interface CreateAuditLogDto {
+    hospital: Types.ObjectId | string;
+    staff: Types.ObjectId | string;
+    action: string;
+    resourceType: string;
+    resourceId?: Types.ObjectId | string;
+    previousState?: Record<string, any>;
+    newState?: Record<string, any>;
+    metadata?: Record<string, any>;
+    notes?: string;
+    location?: {
+        latitude: number;
+        longitude: number;
     };
+    status?: string;
+    ipAddress?: string;
+    userAgent?: string;
 }
 export declare class AuditService {
-    private readonly auditLogModel;
+    private auditLogModel;
     constructor(auditLogModel: Model<AuditLogDocument>);
-    create(createAuditLogDto: CreateAuditLogDto): Promise<AuditLog>;
-    findAll(hospitalId: string, query?: any): Promise<{
-        data: AuditLog[];
+    createLog(logData: CreateAuditLogDto): Promise<AuditLogDocument>;
+    getHospitalLogs(hospitalId: string, options?: {
+        startDate?: Date;
+        endDate?: Date;
+        action?: string;
+        resourceType?: string;
+        staffId?: string;
+        limit?: number;
+        skip?: number;
+    }): Promise<{
+        logs: AuditLogDocument[];
         total: number;
-        page: number;
-        limit: number;
     }>;
-    findOne(id: string): Promise<AuditLog>;
-    logActivity(hospitalId: string, module: string, action: string, resourceId: any, previousState?: any, newState?: any, req?: AuthenticatedRequest): Promise<void>;
-    getActivitySummary(hospitalId: string, days?: number): Promise<any>;
+    getResourceHistory(resourceType: string, resourceId: string): Promise<AuditLogDocument[]>;
+    getStaffActivity(staffId: string, startDate?: Date, endDate?: Date): Promise<AuditLogDocument[]>;
+    getActivitySummary(hospitalId: string, startDate: Date, endDate: Date): Promise<any>;
 }
-export {};

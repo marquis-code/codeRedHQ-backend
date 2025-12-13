@@ -18,6 +18,8 @@ import { SurgeModule } from './surge/surge.module';
 import { DatabaseModule } from './database/database.module';
 import { MigrationsModule } from './migrations/migrations.module';
 import { HospitalClicksModule } from './hospital-click/hospital-clicks.module';
+import { EMRModule } from "./emr/emr.module"
+import { SurgePredictionModule } from "./surge-prediction/surge-prediction.module"
 
 @Module({
   imports: [
@@ -68,7 +70,9 @@ import { HospitalClicksModule } from './hospital-click/hospital-clicks.module';
     UserModule,
     SurgeModule,
     MigrationsModule,
-    HospitalClicksModule
+    HospitalClicksModule,
+    EMRModule,
+    SurgePredictionModule,
   ],
 })
 export class AppModule {}

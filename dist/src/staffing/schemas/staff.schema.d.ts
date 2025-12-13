@@ -23,22 +23,61 @@
 /// <reference types="mongoose/types/virtuals" />
 /// <reference types="mongoose/types/inferschematype" />
 import { Document, Schema as MongooseSchema } from 'mongoose';
-export type StaffDocument = Staff & Document;
+export interface StaffMethods {
+    comparePassword(candidatePassword: string): Promise<boolean>;
+}
+export type StaffDocument = Staff & Document & StaffMethods;
 export declare class Staff {
     hospital: MongooseSchema.Types.ObjectId;
     name: string;
+    email: string;
+    password: string;
     position: string;
     department: string;
     availability: string;
     contactNumber: string;
-    email: string;
     schedule: Array<{
         date: Date;
         shift: string;
         status: string;
     }>;
     specializations: Record<string, any>;
+    attendanceHistory: Array<{
+        clockInTime: Date;
+        clockOutTime?: Date;
+        clockInLocation: {
+            type: string;
+            coordinates: number[];
+        };
+        clockOutLocation?: {
+            type: string;
+            coordinates: number[];
+        };
+        distanceFromHospital: number;
+        shift: string;
+        status: 'active' | 'completed';
+        notes?: string;
+    }>;
+    currentShift: {
+        clockInTime: Date;
+        clockInLocation: {
+            type: string;
+            coordinates: number[];
+        };
+        distanceFromHospital: number;
+        shift: string;
+    } | null;
+    permissions: string[];
+    emrAccessLevel: string;
     isActive: boolean;
+    isVerified: boolean;
+    lastKnownLocation: {
+        type: string;
+        coordinates: number[];
+    };
+    lastLocationUpdate: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 export declare const StaffSchema: MongooseSchema<Document<Staff, any, any>, import("mongoose").Model<Document<Staff, any, any>, any, any, any, Document<unknown, any, Document<Staff, any, any>> & Document<Staff, any, any> & Required<{
     _id: Staff;
