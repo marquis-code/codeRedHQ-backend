@@ -17,9 +17,11 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const hospital_schema_1 = require("./schemas/hospital.schema");
+const staff_service_1 = require("../staffing/staff.service");
 let HospitalService = class HospitalService {
-    constructor(hospitalModel) {
+    constructor(hospitalModel, staffingService) {
         this.hospitalModel = hospitalModel;
+        this.staffingService = staffingService;
     }
     async create(createHospitalDto) {
         const existingEmail = await this.hospitalModel.findOne({ email: createHospitalDto.email }).exec();
@@ -28,7 +30,33 @@ let HospitalService = class HospitalService {
         }
         const username = await this.generateUniqueUsername(createHospitalDto.hospitalName, createHospitalDto.address);
         const newHospital = new this.hospitalModel(Object.assign(Object.assign({}, createHospitalDto), { username }));
-        return newHospital.save();
+        const savedHospital = await newHospital.save();
+        try {
+            const adminStaffData = {
+                hospital: savedHospital._id,
+                name: `${createHospitalDto.hospitalName} Administrator`,
+                email: createHospitalDto.email,
+                password: createHospitalDto.password,
+                position: 'Hospital Administrator',
+                department: 'Administration',
+                contactNumber: createHospitalDto.contactInformation,
+                permissions: ['admin', 'manage_staff', 'manage_bedspaces', 'manage_hospital', 'view_reports'],
+                emrAccessLevel: 'admin',
+                isVerified: true,
+                isActive: true,
+                availability: 'Off Shift',
+            };
+            const adminResult = await this.staffingService.createAdminForHospital(adminStaffData);
+            return {
+                hospital: savedHospital,
+                adminStaff: adminResult.staff,
+                token: adminResult.token,
+            };
+        }
+        catch (error) {
+            await this.hospitalModel.deleteOne({ _id: savedHospital._id });
+            throw new common_1.ConflictException(`Failed to create admin account: ${error.message}`);
+        }
     }
     async findAll(query) {
         return this.hospitalModel.find(query).populate('bedspaces').exec();
@@ -219,7 +247,9 @@ let HospitalService = class HospitalService {
 HospitalService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(hospital_schema_1.Hospital.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => staff_service_1.StaffingService))),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        staff_service_1.StaffingService])
 ], HospitalService);
 exports.HospitalService = HospitalService;
 //# sourceMappingURL=hospital.service.js.map

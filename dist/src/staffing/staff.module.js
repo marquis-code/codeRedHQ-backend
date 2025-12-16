@@ -17,6 +17,7 @@ const staff_service_1 = require("./staff.service");
 const staff_schema_1 = require("./schemas/staff.schema");
 const hospital_schema_1 = require("../hospital/schemas/hospital.schema");
 const audit_module_1 = require("../audit/audit.module");
+const hospital_module_1 = require("../hospital/hospital.module");
 let StaffingModule = class StaffingModule {
 };
 StaffingModule = __decorate([
@@ -37,10 +38,11 @@ StaffingModule = __decorate([
                 }),
             }),
             audit_module_1.AuditModule,
+            (0, common_1.forwardRef)(() => hospital_module_1.HospitalModule),
         ],
         controllers: [staff_controller_1.StaffingController],
         providers: [staff_service_1.StaffingService],
-        exports: [staff_service_1.StaffingService, jwt_1.JwtModule],
+        exports: [staff_service_1.StaffingService, jwt_1.JwtModule, mongoose_1.MongooseModule],
     })
 ], StaffingModule);
 exports.StaffingModule = StaffingModule;

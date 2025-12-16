@@ -1,18 +1,42 @@
 
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Hospital, HospitalModel } from './schemas/hospital.schema';
 import { CreateHospitalDto } from './dto/create-hospital.dto';
 import { UpdateHospitalDto } from './dto/update-hospital.dto';
+import { StaffingService } from '../staffing/staff.service';
 
 @Injectable()
 export class HospitalService {
   constructor(
     @InjectModel(Hospital.name) private hospitalModel: Model<HospitalModel>,
+     @Inject(forwardRef(() => StaffingService))private staffingService: StaffingService,
   ) {}
 
-  async create(createHospitalDto: CreateHospitalDto): Promise<Hospital> {
+  // async create(createHospitalDto: CreateHospitalDto): Promise<Hospital> {
+  //   // Check if email already exists
+  //   const existingEmail = await this.hospitalModel.findOne({ email: createHospitalDto.email }).exec();
+  //   if (existingEmail) {
+  //     throw new ConflictException('Email already exists');
+  //   }
+
+  //   // Generate a unique username based on hospital name and location
+  //   const username = await this.generateUniqueUsername(
+  //     createHospitalDto.hospitalName,
+  //     createHospitalDto.address
+  //   );
+
+  //   // Create new hospital with generated username
+  //   const newHospital = new this.hospitalModel({
+  //     ...createHospitalDto,
+  //     username,
+  //   });
+
+  //   return newHospital.save();
+  // }
+
+    async create(createHospitalDto: CreateHospitalDto): Promise<{ hospital: Hospital; adminStaff: any; token: string }> {
     // Check if email already exists
     const existingEmail = await this.hospitalModel.findOne({ email: createHospitalDto.email }).exec();
     if (existingEmail) {
@@ -31,7 +55,38 @@ export class HospitalService {
       username,
     });
 
-    return newHospital.save();
+    const savedHospital = await newHospital.save();
+
+    // ✅ CREATE ADMIN STAFF AUTOMATICALLY
+    try {
+      const adminStaffData = {
+        hospital: savedHospital._id,
+        name: `${createHospitalDto.hospitalName} Administrator`,
+        email: createHospitalDto.email,
+        password: createHospitalDto.password, // Use same password as hospital
+        position: 'Hospital Administrator',
+        department: 'Administration',
+        contactNumber: createHospitalDto.contactInformation,
+        permissions: ['admin', 'manage_staff', 'manage_bedspaces', 'manage_hospital', 'view_reports'],
+        emrAccessLevel: 'admin',
+        isVerified: true,
+        isActive: true,
+        availability: 'Off Shift',
+      };
+
+      // Create admin staff using the staffing service
+      const adminResult = await this.staffingService.createAdminForHospital(adminStaffData);
+
+      return {
+        hospital: savedHospital,
+        adminStaff: adminResult.staff,
+        token: adminResult.token,
+      };
+    } catch (error) {
+      // If admin creation fails, rollback hospital creation
+      await this.hospitalModel.deleteOne({ _id: savedHospital._id });
+      throw new ConflictException(`Failed to create admin account: ${error.message}`);
+    }
   }
 
   async findAll(query: any): Promise<Hospital[]> {

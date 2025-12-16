@@ -70,6 +70,31 @@ let StaffingService = class StaffingService {
         });
         return { staff: savedStaff, token };
     }
+    async createAdminForHospital(adminData) {
+        var _a;
+        const existingAdmin = await this.staffModel.findOne({
+            hospital: adminData.hospital,
+            email: adminData.email,
+        });
+        if (existingAdmin) {
+            throw new common_1.BadRequestException('Admin with this email already exists for this hospital');
+        }
+        const staff = new this.staffModel(Object.assign(Object.assign({}, adminData), { isVerified: true, isActive: true, permissions: ['admin', 'manage_staff', 'manage_bedspaces', 'manage_hospital', 'view_reports'], emrAccessLevel: 'admin' }));
+        const savedStaff = await staff.save();
+        const token = this.jwtService.sign({
+            sub: savedStaff._id.toString(),
+            email: savedStaff.email,
+            hospitalId: (_a = savedStaff.hospital) === null || _a === void 0 ? void 0 : _a.toString(),
+            role: savedStaff.position,
+            permissions: savedStaff.permissions || [],
+            type: 'staff',
+        });
+        this.eventEmitter.emit('staff.admin_created', {
+            hospitalId: savedStaff.hospital,
+            staff: savedStaff,
+        });
+        return { staff: savedStaff, token };
+    }
     async login(loginStaffDto) {
         var _a;
         const staff = await this.staffModel.findOne({ email: loginStaffDto.email });

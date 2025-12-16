@@ -19,6 +19,10 @@ export declare class StaffingService {
         staff: StaffDocument;
         token: string;
     }>;
+    createAdminForHospital(adminData: any): Promise<{
+        staff: StaffDocument;
+        token: string;
+    }>;
     login(loginStaffDto: LoginStaffDto): Promise<{
         staff: StaffDocument;
         token: string;

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HospitalController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const hospital_service_1 = require("./hospital.service");
 const create_hospital_dto_1 = require("./dto/create-hospital.dto");
 const update_hospital_dto_1 = require("./dto/update-hospital.dto");
@@ -22,16 +23,36 @@ let HospitalController = class HospitalController {
         this.hospitalService = hospitalService;
     }
     async create(createHospitalDto) {
-        return this.hospitalService.create(createHospitalDto);
+        const result = await this.hospitalService.create(createHospitalDto);
+        return {
+            success: true,
+            message: 'Hospital created successfully with admin account',
+            data: {
+                hospital: {
+                    id: result.hospital._id,
+                    hospitalName: result.hospital.hospitalName,
+                    email: result.hospital.email,
+                    username: result.hospital.username,
+                    address: result.hospital.address,
+                },
+                admin: {
+                    id: result.adminStaff._id,
+                    name: result.adminStaff.name,
+                    email: result.adminStaff.email,
+                    position: result.adminStaff.position,
+                    department: result.adminStaff.department,
+                    permissions: result.adminStaff.permissions,
+                    emrAccessLevel: result.adminStaff.emrAccessLevel,
+                },
+                token: result.token,
+            },
+        };
     }
     async findAll(query) {
         return this.hospitalService.findAll(query);
     }
     async findNearby(latitude, longitude, maxDistance) {
         return this.hospitalService.findNearby(parseFloat(latitude), parseFloat(longitude), maxDistance ? parseFloat(maxDistance) : undefined);
-    }
-    async findByCoordinate(latitude, longitude) {
-        return this.hospitalService.findByExactCoordinates(parseFloat(latitude), parseFloat(longitude));
     }
     async findOne(id) {
         return this.hospitalService.findOne(id);
@@ -45,6 +66,11 @@ let HospitalController = class HospitalController {
 };
 __decorate([
     (0, common_1.Post)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create new hospital with automatic admin account' }),
+    (0, swagger_1.ApiResponse)({
+        status: common_1.HttpStatus.CREATED,
+        description: 'Hospital and admin account created successfully'
+    }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_hospital_dto_1.CreateHospitalDto]),
@@ -66,14 +92,6 @@ __decorate([
     __metadata("design:paramtypes", [Number, Number, Number]),
     __metadata("design:returntype", Promise)
 ], HospitalController.prototype, "findNearby", null);
-__decorate([
-    (0, common_1.Get)('find-by-coordinate'),
-    __param(0, (0, common_1.Query)('latitude')),
-    __param(1, (0, common_1.Query)('longitude')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number]),
-    __metadata("design:returntype", Promise)
-], HospitalController.prototype, "findByCoordinate", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -97,6 +115,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], HospitalController.prototype, "remove", null);
 HospitalController = __decorate([
+    (0, swagger_1.ApiTags)('Hospitals'),
     (0, common_1.Controller)('hospitals'),
     __metadata("design:paramtypes", [hospital_service_1.HospitalService])
 ], HospitalController);

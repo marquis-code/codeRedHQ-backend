@@ -2,10 +2,16 @@ import { Model } from 'mongoose';
 import { Hospital, HospitalModel } from './schemas/hospital.schema';
 import { CreateHospitalDto } from './dto/create-hospital.dto';
 import { UpdateHospitalDto } from './dto/update-hospital.dto';
+import { StaffingService } from '../staffing/staff.service';
 export declare class HospitalService {
     private hospitalModel;
-    constructor(hospitalModel: Model<HospitalModel>);
-    create(createHospitalDto: CreateHospitalDto): Promise<Hospital>;
+    private staffingService;
+    constructor(hospitalModel: Model<HospitalModel>, staffingService: StaffingService);
+    create(createHospitalDto: CreateHospitalDto): Promise<{
+        hospital: Hospital;
+        adminStaff: any;
+        token: string;
+    }>;
     findAll(query: any): Promise<Hospital[]>;
     findByUsernameOrEmail(usernameOrEmail: string): Promise<Hospital>;
     update(id: string, updateHospitalDto: UpdateHospitalDto): Promise<Hospital>;

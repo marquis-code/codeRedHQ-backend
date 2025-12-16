@@ -89,6 +89,47 @@ async register(registerStaffDto: RegisterStaffDto): Promise<{ staff: StaffDocume
   return { staff: savedStaff, token };
 }
 
+async createAdminForHospital(adminData: any): Promise<{ staff: StaffDocument; token: string }> {
+  // Check if admin already exists for this hospital
+  const existingAdmin = await this.staffModel.findOne({
+    hospital: adminData.hospital,
+    email: adminData.email,
+  });
+
+  if (existingAdmin) {
+    throw new BadRequestException('Admin with this email already exists for this hospital');
+  }
+
+  // Create admin staff
+  const staff = new this.staffModel({
+    ...adminData,
+    isVerified: true,
+    isActive: true,
+    permissions: ['admin', 'manage_staff', 'manage_bedspaces', 'manage_hospital', 'view_reports'],
+    emrAccessLevel: 'admin',
+  });
+
+  const savedStaff = await staff.save();
+
+  // Generate JWT token
+  const token = this.jwtService.sign({
+    sub: savedStaff._id.toString(),
+    email: savedStaff.email,
+    hospitalId: savedStaff.hospital?.toString(),
+    role: savedStaff.position,
+    permissions: savedStaff.permissions || [],
+    type: 'staff',
+  });
+
+  // Emit event
+  this.eventEmitter.emit('staff.admin_created', {
+    hospitalId: savedStaff.hospital,
+    staff: savedStaff,
+  });
+
+  return { staff: savedStaff, token };
+}
+
 // Login staff
 async login(loginStaffDto: LoginStaffDto): Promise<{ staff: StaffDocument; token: string }> {
   // Find staff by email

@@ -12,6 +12,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const hospital_schema_1 = require("./schemas/hospital.schema");
 const hospital_service_1 = require("./hospital.service");
 const hospital_controller_1 = require("./hospital.controller");
+const staff_module_1 = require("../staffing/staff.module");
 let HospitalModule = class HospitalModule {
 };
 HospitalModule = __decorate([
@@ -24,6 +25,7 @@ HospitalModule = __decorate([
                     collection: 'hospitals'
                 },
             ]),
+            (0, common_1.forwardRef)(() => staff_module_1.StaffingModule),
         ],
         controllers: [hospital_controller_1.HospitalController],
         providers: [hospital_service_1.HospitalService],
